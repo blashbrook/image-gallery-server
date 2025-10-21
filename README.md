@@ -8,6 +8,8 @@ Simply run `gallery up` in any folder with media files, and it will automaticall
 
 ✨ **Modern Web Interface**
 - Organized gallery with folder sections
+- Viewport-aware thumbnail generation (prioritizes visible images)
+- Pause/resume thumbnail generation at any time
 - Real-time thumbnail generation with progress bar
 - Instant tiny preview thumbnails for immediate feedback
 - Pan and zoom functionality for images
@@ -60,13 +62,22 @@ Simply run `gallery up` in any folder with media files, and it will automaticall
 - **Videos**: MP4, MOV, AVI, MKV, WebM, OGG, M4V, 3GP, WMV, FLV
 
 ### **Performance Considerations:**
+- **Viewport-Aware Generation**: 
+  - Only generates thumbnails for visible images first
+  - Automatically prioritizes as you scroll
+  - Reduces initial wait time for large galleries
+  - Background generation continues for off-screen images
 - **Two-Phase Thumbnail Generation**: 
-  - Phase 1: Instant 64×64 tiny previews (blurred) for immediate visual feedback
-  - Phase 2: Full 300×300px thumbnails generated in background
+  - Phase 1: Instant 64×64 tiny previews (blurred) for viewport items
+  - Phase 2: Full 300×300px thumbnails
 - **Adaptive Batch Processing**: 
-  - Small galleries (<100 images): 3 concurrent thumbnails
-  - Medium galleries (100-500): 6 concurrent thumbnails
-  - Large galleries (500+): 10 concurrent thumbnails
+  - Processes 5 items at a time with viewport priority
+  - Viewport items: Tiny preview → Full thumbnail
+  - Background items: Full thumbnail only
+- **User Control**:
+  - Pause/resume thumbnail generation at any time
+  - Gallery remains fully usable while paused
+  - Resume exactly where you left off
 - **Thumbnail Size**: 300×300px JPEG (quality 80%) + 64×64px tiny preview
 - **Cache Size**: ~10-50KB per full thumbnail + ~2KB per tiny preview
 - **Memory Usage**: ~100-200MB base + ~1-2MB per 1000 images
@@ -277,15 +288,31 @@ Returns JSON with all images organized by directory structure.
 GET /progress
 ```
 Real-time thumbnail generation progress and updates:
+- `request_viewport_items`: Server requests visible items from client
 - `tiny_preview_ready`: When 64×64 preview is generated
 - `thumbnail_ready`: When full 300×300 thumbnail is complete
 - `global_thumbnail_progress`: Overall progress with current file
+- `thumbnail_paused`: When generation is paused/resumed
 
 ### Force Rescan
 ```
 POST /api/rescan
 ```
 Invalidates cache and rescans directory for new files.
+
+### Report Viewport Items
+```
+POST /api/viewport-items
+```
+Client reports which images are currently visible in viewport.
+Payload: `{ relativePaths: string[] }`
+
+### Pause/Resume Thumbnail Generation
+```
+POST /api/pause-thumbnails
+```
+Toggles pause state for thumbnail generation.
+Returns: `{ isPaused: boolean }`
 
 ### View Individual Image
 ```
@@ -338,15 +365,23 @@ PORT=8080 node server.js /path/to/images
 ## Features in Detail
 
 ### Thumbnail Generation
+- **Viewport-aware generation**:
+  - Prioritizes thumbnails for images currently visible on screen
+  - Automatically detects and prioritizes as you scroll (500px buffer)
+  - Background generation continues for off-screen images
 - **Two-phase generation** for optimal UX:
-  1. Instant tiny previews (64×64) appear immediately
+  1. Instant tiny previews (64×64) appear immediately for viewport items
   2. Full-quality thumbnails (300×300) load progressively
+- **Pause/Resume control**:
+  - Pause button replaces rescan button during generation
+  - Click to pause/resume at any time
+  - Gallery remains fully usable while paused
+  - Icon changes: ⏸️ (pause) ↔️ ▶️ (resume)
 - **Real-time progress**: Slim progress bar in header with current file name
 - **Individual loaders**: Spinner on each thumbnail during generation
 - Uses Sharp for high-quality, fast image processing
 - Thumbnails are cached and only regenerated if missing
 - JPEG format with 80% quality for optimal file size
-- **Adaptive performance**: Batch size scales with gallery size
 
 ### Favorites System
 - **Heart/favorite images**: Click heart icon on any image
@@ -380,7 +415,8 @@ PORT=8080 node server.js /path/to/images
 - **Header Buttons**:
   - Fullscreen: Toggle fullscreen mode
   - Theme: Switch between dark and light themes
-  - Rescan: Force directory rescan
+  - Pause/Resume: Pause or resume thumbnail generation (only visible during generation)
+  - Rescan: Force directory rescan (hidden during generation)
   - Favorites Filter: Show only hearted images (highlights red when active)
 - **Modal Controls** (Image Viewer):
   - Heart: Favorite/unfavorite current image
@@ -391,6 +427,7 @@ PORT=8080 node server.js /path/to/images
   - Heart icon on hover: Favorite images directly from gallery
   - Click image: Open in full-screen modal
   - Organized by folder sections with titles
+  - Automatic viewport detection for optimized loading
 
 ## Troubleshooting
 

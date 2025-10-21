@@ -703,102 +703,119 @@ function broadcastGlobalProgress() {
     });
 }
 
-// Generate thumbnails in background with progress updates
+// Global state for viewport-aware generation
+let viewportQueue = [];
+let backgroundQueue = [];
+let isGenerating = false;
+let isPaused = false;
+
+// Generate thumbnails with viewport priority
 async function generateThumbnailsInBackground(pendingImages) {
-    console.log(`⚡ Phase 1: Generating ${pendingImages.length} tiny previews...`);
+    viewportQueue = [];
+    backgroundQueue = [...pendingImages];
+    isGenerating = true;
     
     thumbnailGenerationState = {
         isGenerating: true,
-        total: pendingImages.length * 2,
+        total: pendingImages.length,
         completed: 0,
         currentFile: '',
         progress: 0
     };
     broadcastGlobalProgress();
     
-    const tinyBatchSize = 20;
-    for (let i = 0; i < pendingImages.length; i += tinyBatchSize) {
-        const batch = pendingImages.slice(i, i + tinyBatchSize);
-        await Promise.all(batch.map(async (image) => {
-            try {
-                const tinyPreview = await generateTinyPreview(image);
-                if (tinyPreview) {
-                    broadcastToClients({
-                        type: 'tiny_preview_ready',
-                        media: { ...image, tinyPreview, url: `/image/${encodeURIComponent(image.relativePath)}` }
-                    });
-                }
-                thumbnailGenerationState.completed++;
-                thumbnailGenerationState.progress = Math.round((thumbnailGenerationState.completed / thumbnailGenerationState.total) * 100);
-                if (i % 50 === 0) broadcastGlobalProgress();
-            } catch (error) {
-                console.warn(`Failed tiny preview for ${image.name}`);
-            }
-        }));
-    }
+    console.log(`👁️ Viewport-aware generation: ${pendingImages.length} thumbnails`);
     
-    console.log(`✅ Phase 1 complete`);
-    console.log(`🔄 Phase 2: Generating full thumbnails...`);
+    // Wait for client to report viewport items
+    broadcastToClients({ type: 'request_viewport_items' });
     
-    const batchSize = pendingImages.length > 500 ? THUMBNAIL_CONFIG.batchSize.large : (pendingImages.length > 100 ? THUMBNAIL_CONFIG.batchSize.medium : THUMBNAIL_CONFIG.batchSize.small);
+    // Start processing after short delay to allow viewport report
+    await new Promise(resolve => setTimeout(resolve, 500));
+    await processThumbnailQueue();
+}
+
+// Process thumbnail queue with viewport priority
+async function processThumbnailQueue() {
+    const batchSize = 5;
     let processedCount = 0;
     let errorCount = 0;
     
-    for (let i = 0; i < pendingImages.length; i += batchSize) {
-        const batch = pendingImages.slice(i, i + batchSize);
-        const batchNumber = Math.floor(i / batchSize) + 1;
-        const totalBatches = Math.ceil(pendingImages.length / batchSize);
+    while (isGenerating && (viewportQueue.length > 0 || backgroundQueue.length > 0)) {
+        // Check if paused
+        if (isPaused) {
+            await new Promise(resolve => setTimeout(resolve, 500));
+            continue;
+        }
+        // Prioritize viewport items
+        const batch = [];
         
-        if (batchNumber % 10 === 1 || pendingImages.length < 100) {
-            console.log(`🖼️  Processing batch ${batchNumber}/${totalBatches}`);
+        // Get viewport items first (up to batch size)
+        while (batch.length < batchSize && viewportQueue.length > 0) {
+            batch.push({ item: viewportQueue.shift(), priority: 'viewport' });
         }
         
-        const promises = batch.map(async (image) => {
+        // Fill remainder with background items
+        while (batch.length < batchSize && backgroundQueue.length > 0) {
+            batch.push({ item: backgroundQueue.shift(), priority: 'background' });
+        }
+        
+        if (batch.length === 0) break;
+        
+        // Generate tiny previews first for viewport items
+        const tinyPromises = batch
+            .filter(b => b.priority === 'viewport')
+            .map(async ({ item }) => {
+                try {
+                    const tinyPreview = await generateTinyPreview(item);
+                    if (tinyPreview) {
+                        broadcastToClients({
+                            type: 'tiny_preview_ready',
+                            media: { ...item, tinyPreview, url: `/image/${encodeURIComponent(item.relativePath)}` }
+                        });
+                    }
+                } catch (error) {
+                    console.warn(`Failed tiny preview for ${item.name}`);
+                }
+            });
+        
+        await Promise.all(tinyPromises);
+        
+        // Generate full thumbnails
+        const fullPromises = batch.map(async ({ item }) => {
             try {
-                thumbnailGenerationState.currentFile = image.name;
-                await generateThumbnailFast(image);
+                thumbnailGenerationState.currentFile = item.name;
+                await generateThumbnailFast(item);
                 processedCount++;
                 thumbnailGenerationState.completed++;
                 thumbnailGenerationState.progress = Math.round((thumbnailGenerationState.completed / thumbnailGenerationState.total) * 100);
-                if (processedCount % 10 === 0) broadcastGlobalProgress();
-                return { success: true, image };
+                if (processedCount % 5 === 0) broadcastGlobalProgress();
+                return { success: true, item };
             } catch (error) {
                 errorCount++;
-                console.warn(`✗ Failed: ${image.name}`);
-                return { success: false, image, error };
+                console.warn(`✗ Failed: ${item.name}`);
+                return { success: false, item, error };
             }
         });
         
-        try {
-            await Promise.all(promises);
-        } catch (error) {
-            console.error(`❗ Batch ${batchNumber} failed:`, error.message);
-            errorCount += batch.length;
-        }
+        await Promise.all(fullPromises);
         
-        if (i + batchSize < pendingImages.length) {
-            const delay = pendingImages.length > 500 ? THUMBNAIL_CONFIG.batchDelay.large : THUMBNAIL_CONFIG.batchDelay.small;
-            await new Promise(resolve => setTimeout(resolve, delay));
-        }
+        // Small delay between batches
+        await new Promise(resolve => setTimeout(resolve, 50));
     }
     
     const totalProcessed = processedCount + errorCount;
-    
-    // Mark global progress as complete
     thumbnailGenerationState = {
         isGenerating: false,
-        total: pendingImages.length,
+        total: thumbnailGenerationState.total,
         completed: totalProcessed,
         currentFile: '',
         progress: 100
     };
     broadcastGlobalProgress();
+    isGenerating = false;
     
-    console.log(`✅ Background thumbnail generation completed`);
-    console.log(`📊 Final stats: ${processedCount} success, ${errorCount} errors, ${totalProcessed}/${pendingImages.length} processed`);
-    
-    // Clean up any stale SSE connections
-    console.log(`🌐 Active SSE connections: ${sseClients.size}`);
+    console.log(`✅ Viewport-aware generation complete`);
+    console.log(`📊 Stats: ${processedCount} success, ${errorCount} errors`);
 }
 
 // Generate the index.html file in .gallery-cache
@@ -1035,6 +1052,12 @@ async function generateIndexHTML() {
                     <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
                 </svg>
             </button>
+            <button class="header-btn" id="pauseBtn" style="display:none;" onclick="togglePause()" title="Pause Generation">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="6" y="4" width="4" height="16"></rect>
+                    <rect x="14" y="4" width="4" height="16"></rect>
+                </svg>
+            </button>
             <button class="header-btn" id="rescanBtn" onclick="rescanGallery()" title="Rescan Gallery">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                     <polyline points="23 4 23 10 17 10"></polyline>
@@ -1079,6 +1102,7 @@ async function generateIndexHTML() {
         let heartedImages = new Set();
         let currentModalMedia = null;
         let showOnlyHearted = false;
+        let thumbnailsPaused = false;
         
         function loadHearts() {
             const saved = localStorage.getItem('heartedImages');
@@ -1226,6 +1250,15 @@ async function generateIndexHTML() {
             eventSource.onmessage = (event) => {
                 const data = JSON.parse(event.data);
                 
+                if (data.type === 'request_viewport_items') {
+                    reportViewportItems();
+                }
+                
+                if (data.type === 'thumbnail_paused') {
+                    thumbnailsPaused = data.isPaused;
+                    updatePauseButton();
+                }
+                
                 if (data.type === 'tiny_preview_ready' && data.media) {
                     const cached = thumbnailCache.get(data.media.relativePath);
                     if (cached && data.media.tinyPreview) {
@@ -1248,15 +1281,22 @@ async function generateIndexHTML() {
                     const progressBar = document.getElementById('progressBar');
                     const progressContainer = document.getElementById('progressBarContainer');
                     const progressText = document.getElementById('progress-text');
+                    const pauseBtn = document.getElementById('pauseBtn');
+                    const rescanBtn = document.getElementById('rescanBtn');
                     
                     if (data.isGenerating) {
                         progressContainer.classList.add('active');
                         progressBar.style.width = data.progress + '%';
                         progressText.textContent = 'Generating: ' + data.completed + '/' + data.total + ' (' + data.currentFile + ')';
+                        pauseBtn.style.display = '';
+                        rescanBtn.style.display = 'none';
                     } else {
                         setTimeout(() => {
                             progressContainer.classList.remove('active');
                             progressText.textContent = '';
+                            pauseBtn.style.display = 'none';
+                            rescanBtn.style.display = '';
+                            thumbnailsPaused = false;
                         }, 1000);
                     }
                 }
@@ -1267,6 +1307,69 @@ async function generateIndexHTML() {
                 eventSource.close();
                 setTimeout(connectSSE, 3000);
             };
+        }
+        
+        function reportViewportItems() {
+            const viewportItems = [];
+            document.querySelectorAll('.gallery-item').forEach(item => {
+                const rect = item.getBoundingClientRect();
+                const isVisible = rect.top < window.innerHeight + 500 && rect.bottom > -500;
+                if (isVisible && item.dataset.relativePath) {
+                    const cached = thumbnailCache.get(item.dataset.relativePath);
+                    if (cached && !cached.data.thumbnail) {
+                        viewportItems.push(item.dataset.relativePath);
+                    }
+                }
+            });
+            
+            if (viewportItems.length > 0) {
+                fetch('/api/viewport-items', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ relativePaths: viewportItems })
+                }).catch(e => console.log('Failed to report viewport items'));
+            }
+        }
+        
+        let scrollTimeout;
+        window.addEventListener('scroll', () => {
+            clearTimeout(scrollTimeout);
+            scrollTimeout = setTimeout(() => {
+                reportViewportItems();
+            }, 200);
+        });
+        
+        function updatePauseButton() {
+            const pauseBtn = document.getElementById('pauseBtn');
+            const svg = pauseBtn.querySelector('svg');
+            if (thumbnailsPaused) {
+                pauseBtn.title = 'Resume Generation';
+                svg.setAttribute('fill', 'none');
+                svg.setAttribute('stroke', 'currentColor');
+                svg.setAttribute('stroke-width', '2');
+                svg.setAttribute('stroke-linecap', 'round');
+                svg.setAttribute('stroke-linejoin', 'round');
+                svg.innerHTML = '<polygon points="5 3 19 12 5 21 5 3"></polygon>';
+            } else {
+                pauseBtn.title = 'Pause Generation';
+                svg.setAttribute('fill', 'none');
+                svg.setAttribute('stroke', 'currentColor');
+                svg.setAttribute('stroke-width', '2');
+                svg.setAttribute('stroke-linecap', 'round');
+                svg.setAttribute('stroke-linejoin', 'round');
+                svg.innerHTML = '<rect x="6" y="4" width="4" height="16"></rect><rect x="14" y="4" width="4" height="16"></rect>';
+            }
+        }
+        
+        async function togglePause() {
+            try {
+                const response = await fetch('/api/pause-thumbnails', { method: 'POST' });
+                const data = await response.json();
+                thumbnailsPaused = data.isPaused;
+                updatePauseButton();
+            } catch (e) {
+                console.log('Failed to toggle pause');
+            }
         }
         
         async function rescanGallery() {
@@ -1415,11 +1518,41 @@ async function setupServer() {
         });
         
         sseClients.add(res);
-        res.write(`data: ${JSON.stringify({ type: 'global_thumbnail_progress', ...thumbnailGenerationState })}\n\n`);
+        res.write(`data: ${JSON.stringify({ type: 'global_thumbnail_progress', ...thumbnailGenerationState })}\\n\\n`);
         
         req.on('close', () => {
             sseClients.delete(res);
         });
+    });
+    
+    app.post('/api/viewport-items', express.json(), (req, res) => {
+        const { relativePaths } = req.body;
+        if (Array.isArray(relativePaths)) {
+            // Add viewport items to priority queue
+            relativePaths.forEach(relativePath => {
+                const item = backgroundQueue.find(img => img.relativePath === relativePath);
+                if (item) {
+                    // Remove from background queue
+                    backgroundQueue = backgroundQueue.filter(img => img.relativePath !== relativePath);
+                    // Add to viewport queue if not already there
+                    if (!viewportQueue.find(img => img.relativePath === relativePath)) {
+                        viewportQueue.push(item);
+                    }
+                }
+            });
+            console.log(`👁️ Viewport: ${viewportQueue.length} priority, ${backgroundQueue.length} background`);
+        }
+        res.json({ queued: viewportQueue.length });
+    });
+    
+    app.post('/api/pause-thumbnails', (req, res) => {
+        isPaused = !isPaused;
+        console.log(`${isPaused ? '⏸️ Paused' : '▶️ Resumed'} thumbnail generation`);
+        broadcastToClients({ 
+            type: 'thumbnail_paused',
+            isPaused 
+        });
+        res.json({ isPaused });
     });
     
     // API endpoint to get gallery data (cached)
