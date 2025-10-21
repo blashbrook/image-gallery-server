@@ -232,37 +232,29 @@
             font-weight: 500;
         }
 
-        .camera-icon {
-            display: inline-block;
-            position: relative;
-            width: 18px;
-            height: 14px;
-            border: 2px solid currentColor;
-            border-radius: 2px;
-            margin-right: 8px;
+        .icon {
+            width: 20px;
+            height: 20px;
+            fill: none;
+            stroke: currentColor;
+            stroke-width: 2;
+            stroke-linecap: round;
+            stroke-linejoin: round;
             vertical-align: middle;
         }
-
-        .camera-icon::before {
-            content: '';
-            position: absolute;
-            top: -4px;
-            left: 4px;
-            width: 6px;
-            height: 3px;
-            background: currentColor;
-            border-radius: 1px 1px 0 0;
+        
+        .icon-filled {
+            fill: currentColor;
+            stroke: none;
         }
-
-        .camera-icon::after {
-            content: '';
-            position: absolute;
-            top: 2px;
-            left: 2px;
-            width: 10px;
-            height: 6px;
-            border: 1px solid currentColor;
-            border-radius: 50%;
+        
+        .icon-small {
+            width: 16px;
+            height: 16px;
+        }
+        
+        .camera-icon {
+            margin-right: 8px;
         }
 
         .loading {
@@ -680,9 +672,49 @@
     </style>
 </head>
 <body>
+    <!-- Hidden SVG icons for reuse -->
+    <svg style="display: none;" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+            <!-- Camera Icon -->
+            <symbol id="icon-camera" viewBox="0 0 24 24">
+                <path d="M9 3h6l2 2h4a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h4l2-2z"/>
+                <circle cx="12" cy="13" r="4"/>
+            </symbol>
+            
+            <!-- Refresh/Rescan Icon -->
+            <symbol id="icon-refresh" viewBox="0 0 24 24">
+                <path d="M1 4v6h6M23 20v-6h-6M20.49 9A9 9 0 0 0 5.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 0 1 3.51 15"/>
+            </symbol>
+            
+            <!-- Sun/Light Mode Icon -->
+            <symbol id="icon-sun" viewBox="0 0 24 24">
+                <circle cx="12" cy="12" r="5"/>
+                <line x1="12" y1="1" x2="12" y2="3"/>
+                <line x1="12" y1="21" x2="12" y2="23"/>
+                <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/>
+                <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
+                <line x1="1" y1="12" x2="3" y2="12"/>
+                <line x1="21" y1="12" x2="23" y2="12"/>
+                <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/>
+                <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+            </symbol>
+            
+            <!-- Moon/Dark Mode Icon -->
+            <symbol id="icon-moon" viewBox="0 0 24 24">
+                <path d="M21 12.79A9 9 0 1 1 11.21 3A7 7 0 0 0 21 12.79z"/>
+            </symbol>
+            
+            <!-- System/Auto Mode Icon -->
+            <symbol id="icon-monitor" viewBox="0 0 24 24">
+                <rect x="2" y="3" width="20" height="14" rx="2" ry="2"/>
+                <line x1="8" y1="21" x2="16" y2="21"/>
+                <line x1="12" y1="17" x2="12" y2="21"/>
+            </symbol>
+        </defs>
+    </svg>
     <div class="header">
         <div class="header-content">
-            <h1><span class="camera-icon"></span>Gallery</h1>
+            <h1><svg class="icon camera-icon"><use href="#icon-camera"/></svg>Gallery</h1>
             <div class="info" id="gallery-info">Loading gallery...</div>
             <div class="breadcrumb" id="breadcrumb"></div>
             <div class="cache-status" id="cache-status"></div>
@@ -700,10 +732,18 @@
             </div>
         </div>
         <div class="theme-controls">
-            <button class="rescan-btn" id="rescan-btn" title="Rescan gallery">🔄</button>
-            <button class="theme-btn" id="theme-light" data-theme="light" title="Light mode">☀️</button>
-            <button class="theme-btn" id="theme-dark" data-theme="dark" title="Dark mode">🌙</button>
-            <button class="theme-btn active" id="theme-system" data-theme="system" title="System mode">🔄</button>
+            <button class="rescan-btn" id="rescan-btn" title="Rescan gallery">
+                <svg class="icon"><use href="#icon-refresh"/></svg>
+            </button>
+            <button class="theme-btn" id="theme-light" data-theme="light" title="Light mode">
+                <svg class="icon"><use href="#icon-sun"/></svg>
+            </button>
+            <button class="theme-btn" id="theme-dark" data-theme="dark" title="Dark mode">
+                <svg class="icon"><use href="#icon-moon"/></svg>
+            </button>
+            <button class="theme-btn active" id="theme-system" data-theme="system" title="System mode">
+                <svg class="icon"><use href="#icon-monitor"/></svg>
+            </button>
         </div>
     </div>
 
