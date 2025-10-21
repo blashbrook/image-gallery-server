@@ -13,7 +13,7 @@ BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
 # Configuration
-REPO_URL="https://github.com/your-username/image-gallery-server"
+REPO_URL="https://github.com/blashbrook/image-gallery-server"
 TEMP_DIR=$(mktemp -d)
 INSTALL_DIR="$HOME/.gallery-cli"
 BIN_NAME="gallery"
