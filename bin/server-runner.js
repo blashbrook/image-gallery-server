@@ -705,63 +705,66 @@ function broadcastGlobalProgress() {
 
 // Generate thumbnails in background with progress updates
 async function generateThumbnailsInBackground(pendingImages) {
-    // Adaptive batch size based on gallery size
-    const batchSize = pendingImages.length > 500 
-        ? THUMBNAIL_CONFIG.batchSize.large
-        : (pendingImages.length > 100 
-            ? THUMBNAIL_CONFIG.batchSize.medium 
-            : THUMBNAIL_CONFIG.batchSize.small);
+    console.log(`⚡ Phase 1: Generating ${pendingImages.length} tiny previews...`);
     
-    const broadcastInterval = Math.max(10, Math.floor(pendingImages.length / THUMBNAIL_CONFIG.broadcastRatio));
-    
-    let processedCount = 0;
-    let errorCount = 0;
-    let lastBroadcast = 0;
-    
-    // Initialize global progress state
     thumbnailGenerationState = {
         isGenerating: true,
-        total: pendingImages.length,
+        total: pendingImages.length * 2,
         completed: 0,
         currentFile: '',
         progress: 0
     };
-    
     broadcastGlobalProgress();
     
-    console.log(`🔄 Processing ${pendingImages.length} thumbnails in batches of ${batchSize}...`);
-    console.log(`⚡ Optimized mode: Broadcasting every ${broadcastInterval} images`);
+    const tinyBatchSize = 20;
+    for (let i = 0; i < pendingImages.length; i += tinyBatchSize) {
+        const batch = pendingImages.slice(i, i + tinyBatchSize);
+        await Promise.all(batch.map(async (image) => {
+            try {
+                const tinyPreview = await generateTinyPreview(image);
+                if (tinyPreview) {
+                    broadcastToClients({
+                        type: 'tiny_preview_ready',
+                        media: { ...image, tinyPreview, url: `/image/${encodeURIComponent(image.relativePath)}` }
+                    });
+                }
+                thumbnailGenerationState.completed++;
+                thumbnailGenerationState.progress = Math.round((thumbnailGenerationState.completed / thumbnailGenerationState.total) * 100);
+                if (i % 50 === 0) broadcastGlobalProgress();
+            } catch (error) {
+                console.warn(`Failed tiny preview for ${image.name}`);
+            }
+        }));
+    }
+    
+    console.log(`✅ Phase 1 complete`);
+    console.log(`🔄 Phase 2: Generating full thumbnails...`);
+    
+    const batchSize = pendingImages.length > 500 ? THUMBNAIL_CONFIG.batchSize.large : (pendingImages.length > 100 ? THUMBNAIL_CONFIG.batchSize.medium : THUMBNAIL_CONFIG.batchSize.small);
+    let processedCount = 0;
+    let errorCount = 0;
     
     for (let i = 0; i < pendingImages.length; i += batchSize) {
         const batch = pendingImages.slice(i, i + batchSize);
         const batchNumber = Math.floor(i / batchSize) + 1;
         const totalBatches = Math.ceil(pendingImages.length / batchSize);
         
-        // Only log every 10th batch for large galleries
         if (batchNumber % 10 === 1 || pendingImages.length < 100) {
             console.log(`🖼️  Processing batch ${batchNumber}/${totalBatches}`);
         }
         
-        // Process batch concurrently with individual error handling
         const promises = batch.map(async (image) => {
             try {
+                thumbnailGenerationState.currentFile = image.name;
                 await generateThumbnailFast(image);
                 processedCount++;
-                
-                // Only broadcast periodically to reduce overhead
-                const shouldBroadcast = (processedCount - lastBroadcast) >= broadcastInterval;
-                if (shouldBroadcast) {
-                    thumbnailGenerationState.completed = processedCount + errorCount;
-                    thumbnailGenerationState.progress = Math.round((thumbnailGenerationState.completed / thumbnailGenerationState.total) * 100);
-                    thumbnailGenerationState.currentFile = image.name;
-                    broadcastGlobalProgress();
-                    lastBroadcast = processedCount;
-                }
-                
+                thumbnailGenerationState.completed++;
+                thumbnailGenerationState.progress = Math.round((thumbnailGenerationState.completed / thumbnailGenerationState.total) * 100);
+                if (processedCount % 10 === 0) broadcastGlobalProgress();
                 return { success: true, image };
             } catch (error) {
                 errorCount++;
-                console.warn(`✗ Failed: ${image.name} - ${error.message}`);
+                console.warn(`✗ Failed: ${image.name}`);
                 return { success: false, image, error };
             }
         });
@@ -773,11 +776,8 @@ async function generateThumbnailsInBackground(pendingImages) {
             errorCount += batch.length;
         }
         
-        // Minimal delay for large galleries, slightly longer for small ones
         if (i + batchSize < pendingImages.length) {
-            const delay = pendingImages.length > 500 
-                ? THUMBNAIL_CONFIG.batchDelay.large 
-                : THUMBNAIL_CONFIG.batchDelay.small;
+            const delay = pendingImages.length > 500 ? THUMBNAIL_CONFIG.batchDelay.large : THUMBNAIL_CONFIG.batchDelay.small;
             await new Promise(resolve => setTimeout(resolve, delay));
         }
     }
@@ -843,6 +843,31 @@ async function generateIndexHTML() {
         .header-content h1 { font-size: 1.5rem; margin: 0; line-height: 1.2; }
         .header-path { font-size: 0.75rem; color: var(--text-secondary); margin-top: 0.15rem; }
         .info { font-size: 0.9rem; color: var(--text-secondary); margin-top: 0.25rem; }
+        .progress-bar-container {
+            height: 3px;
+            background: rgba(0,0,0,0.1);
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            overflow: hidden;
+            display: none;
+        }
+        .progress-bar-container.active { display: block; }
+        .progress-bar {
+            height: 100%;
+            background: linear-gradient(90deg, #3498db, #2ecc71);
+            transition: width 0.3s ease;
+            width: 0%;
+        }
+        .progress-text {
+            font-size: 0.7rem;
+            color: var(--text-secondary);
+            margin-top: 0.25rem;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
         .header-actions { display: flex; gap: 0.5rem; align-items: center; }
         .header-btn {
             width: 36px;
@@ -879,9 +904,27 @@ async function generateIndexHTML() {
             border-radius: 8px;
             overflow: hidden;
             box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            position: relative;
+            background: var(--bg-primary);
         }
         .gallery-item:hover { transform: translateY(-5px); box-shadow: 0 8px 20px rgba(0,0,0,0.15); }
-        .gallery-item img { width: 100%; height: auto; display: block; }
+        .gallery-item img { width: 100%; height: auto; display: block; transition: opacity 0.3s; }
+        .gallery-item img.loading { opacity: 0.6; filter: blur(8px); }
+        .gallery-item .loader {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 24px;
+            height: 24px;
+            border: 3px solid rgba(0,0,0,0.1);
+            border-top-color: #3498db;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            display: none;
+        }
+        .gallery-item.loading .loader { display: block; }
+        @keyframes spin { to { transform: translate(-50%, -50%) rotate(360deg); } }
         .modal {
             display: none;
             position: fixed;
@@ -953,6 +996,7 @@ async function generateIndexHTML() {
                 <h1>Gallery</h1>
                 <div class="header-path" id="gallery-path"></div>
                 <div class="info" id="gallery-info">Loading...</div>
+                <div class="progress-text" id="progress-text"></div>
             </div>
         </div>
         <div class="header-actions">
@@ -972,6 +1016,9 @@ async function generateIndexHTML() {
                     <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path>
                 </svg>
             </button>
+        </div>
+        <div class="progress-bar-container" id="progressBarContainer">
+            <div class="progress-bar" id="progressBar"></div>
         </div>
     </div>
     <div class="gallery-sections" id="gallerySections"></div>
@@ -993,6 +1040,7 @@ async function generateIndexHTML() {
         const zoomControls = document.getElementById('zoomControls');
         const zoomInfo = document.getElementById('zoomInfo');
         let scale = 1, translateX = 0, translateY = 0, isDragging = false, lastX = 0, lastY = 0;
+        const thumbnailCache = new Map();
         
         async function loadGallery() {
             const response = await fetch('/api/gallery');
@@ -1025,18 +1073,82 @@ async function generateIndexHTML() {
                 media.forEach(item => {
                     const galleryItem = document.createElement('div');
                     galleryItem.className = 'gallery-item';
+                    
+                    const loader = document.createElement('div');
+                    loader.className = 'loader';
+                    galleryItem.appendChild(loader);
+                    
                     const img = document.createElement('img');
-                    img.src = item.thumbnail || '/placeholder.jpg';
+                    if (item.thumbnail) {
+                        img.src = item.thumbnail;
+                    } else {
+                        galleryItem.classList.add('loading');
+                        img.classList.add('loading');
+                        img.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="300" height="200"%3E%3Crect width="300" height="200" fill="%23f0f0f0"/%3E%3C/svg%3E';
+                    }
                     img.alt = item.name;
                     img.loading = 'lazy';
                     galleryItem.appendChild(img);
                     galleryItem.onclick = () => openModal(item);
                     gallery.appendChild(galleryItem);
+                    
+                    thumbnailCache.set(item.relativePath, { element: galleryItem, img: img, data: item });
                 });
                 
                 section.appendChild(gallery);
                 sectionsContainer.appendChild(section);
             });
+            
+            connectSSE();
+        }
+        
+        function connectSSE() {
+            const eventSource = new EventSource('/progress');
+            
+            eventSource.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+                
+                if (data.type === 'tiny_preview_ready' && data.media) {
+                    const cached = thumbnailCache.get(data.media.relativePath);
+                    if (cached && data.media.tinyPreview) {
+                        cached.img.src = data.media.tinyPreview;
+                        cached.img.classList.add('loading');
+                    }
+                }
+                
+                if (data.type === 'thumbnail_ready' && data.media) {
+                    const cached = thumbnailCache.get(data.media.relativePath);
+                    if (cached && data.media.thumbnail) {
+                        cached.img.src = data.media.thumbnail;
+                        cached.img.classList.remove('loading');
+                        cached.element.classList.remove('loading');
+                        cached.data.thumbnail = data.media.thumbnail;
+                    }
+                }
+                
+                if (data.type === 'global_thumbnail_progress') {
+                    const progressBar = document.getElementById('progressBar');
+                    const progressContainer = document.getElementById('progressBarContainer');
+                    const progressText = document.getElementById('progress-text');
+                    
+                    if (data.isGenerating) {
+                        progressContainer.classList.add('active');
+                        progressBar.style.width = data.progress + '%';
+                        progressText.textContent = 'Generating: ' + data.completed + '/' + data.total + ' (' + data.currentFile + ')';
+                    } else {
+                        setTimeout(() => {
+                            progressContainer.classList.remove('active');
+                            progressText.textContent = '';
+                        }, 1000);
+                    }
+                }
+            };
+            
+            eventSource.onerror = () => {
+                console.log('SSE lost, reconnecting...');
+                eventSource.close();
+                setTimeout(connectSSE, 3000);
+            };
         }
         
         async function rescanGallery() {
@@ -1158,6 +1270,22 @@ async function setupServer() {
         
         sseClients.add(res);
         res.write(`data: ${JSON.stringify(scanningState)}\n\n`);
+        
+        req.on('close', () => {
+            sseClients.delete(res);
+        });
+    });
+    
+    app.get('/progress', (req, res) => {
+        res.writeHead(200, {
+            'Content-Type': 'text/event-stream',
+            'Cache-Control': 'no-cache',
+            'Connection': 'keep-alive',
+            'Access-Control-Allow-Origin': '*'
+        });
+        
+        sseClients.add(res);
+        res.write(`data: ${JSON.stringify({ type: 'global_thumbnail_progress', ...thumbnailGenerationState })}\n\n`);
         
         req.on('close', () => {
             sseClients.delete(res);
