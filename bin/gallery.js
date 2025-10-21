@@ -6,7 +6,7 @@ const fs = require('fs').promises;
 const path = require('path');
 const sharp = require('sharp');
 const net = require('net');
-const open = require('open');
+const open = require('open').default;
 const { spawn, fork } = require('child_process');
 
 const program = new Command();
@@ -242,6 +242,15 @@ async function launchBackgroundServer(scanDir, port, openBrowser = true) {
     return new Promise((resolve, reject) => {
         let output = '';
         let hasStarted = false;
+        let outputTimeout;
+        
+        const cleanup = () => {
+            if (outputTimeout) clearTimeout(outputTimeout);
+            // Stop listening to prevent keeping the parent process alive
+            child.stdout.removeAllListeners();
+            child.stderr.removeAllListeners();
+            child.removeAllListeners();
+        };
         
         child.stdout.on('data', (data) => {
             output += data.toString();
@@ -250,31 +259,39 @@ async function launchBackgroundServer(scanDir, port, openBrowser = true) {
             if (output.includes('Gallery server started') && !hasStarted) {
                 hasStarted = true;
                 console.log(output.trim());
+                cleanup();
                 resolve({ pid: child.pid });
             }
         });
         
         child.stderr.on('data', (data) => {
-            console.error(data.toString());
+            const errorOutput = data.toString();
+            // Only show critical errors, not warnings
+            if (errorOutput.includes('Error:') || errorOutput.includes('Failed:')) {
+                console.error(errorOutput);
+            }
         });
         
         child.on('error', (error) => {
+            cleanup();
             reject(error);
         });
         
         child.on('exit', (code) => {
+            cleanup();
             if (code !== 0 && !hasStarted) {
                 reject(new Error(`Server failed to start with code ${code}`));
             }
         });
         
-        // Timeout if server doesn't start within 10 seconds
-        setTimeout(() => {
+        // Timeout if server doesn't start within 5 seconds (reduced timeout)
+        outputTimeout = setTimeout(() => {
             if (!hasStarted) {
+                cleanup();
                 child.kill();
                 reject(new Error('Server startup timeout'));
             }
-        }, 10000);
+        }, 5000);
     });
 }
 
@@ -459,6 +476,9 @@ program
             const result = await launchBackgroundServer(scanDir, port, openBrowser);
             console.log('✅ Gallery server started in background');
             console.log('💡 Use "gallery stop" to stop the server');
+            
+            // Exit the CLI process to return control to the terminal
+            process.exit(0);
             
         } catch (error) {
             console.error('Failed to start gallery server:', error.message);

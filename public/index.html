@@ -329,6 +329,72 @@
                 transform: scale(1);
             }
         }
+        
+        .thumbnail-progress {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 8px;
+            font-size: 11px;
+            border-radius: 0 0 8px 8px;
+            backdrop-filter: blur(4px);
+        }
+        
+        .progress-bar {
+            width: 100%;
+            height: 3px;
+            background: rgba(255, 255, 255, 0.3);
+            border-radius: 2px;
+            margin-bottom: 4px;
+            overflow: hidden;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            width: 0%;
+            background: #4CAF50;
+            border-radius: 2px;
+            transition: width 0.3s ease;
+        }
+        
+        .progress-text {
+            text-align: center;
+            font-weight: 500;
+            text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+        }
+        
+        .thumbnail-progress.starting .progress-fill {
+            background: #2196F3;
+        }
+        
+        .thumbnail-progress.processing .progress-fill {
+            background: #FF9800;
+            animation: progressPulse 1s ease-in-out infinite alternate;
+        }
+        
+        .thumbnail-progress.complete .progress-fill {
+            background: #4CAF50;
+        }
+        
+        .thumbnail-progress.error .progress-fill {
+            background: #F44336;
+        }
+        
+        @keyframes progressPulse {
+            0% {
+                opacity: 0.8;
+            }
+            100% {
+                opacity: 1;
+            }
+        }
+        
+        .media-container {
+            position: relative;
+        }
 
         .image-thumbnail {
             width: 100%;
@@ -763,6 +829,9 @@
                     if (data.type === 'thumbnail_ready') {
                         // Handle thumbnail completion
                         this.updateThumbnail(data.media);
+                    } else if (data.type === 'thumbnail_progress') {
+                        // Handle individual thumbnail progress
+                        this.updateThumbnailProgress(data.media, data.status, data.progress);
                     } else {
                         // Handle scanning progress
                         this.updateProgress(data);
@@ -872,10 +941,21 @@
                         <svg width="300" height="200" xmlns="http://www.w3.org/2000/svg">
                             <rect width="100%" height="100%" fill="#f0f0f0"/>
                             <circle cx="150" cy="100" r="30" fill="#ddd"/>
-                            <text x="150" y="140" text-anchor="middle" fill="#999" font-size="12">Loading...</text>
+                            <text x="150" y="140" text-anchor="middle" fill="#999" font-size="12">Queued...</text>
                         </svg>
                     `);
                     card.classList.add('pending-thumbnail');
+                    
+                    // Add progress bar for pending thumbnails
+                    const progressBar = document.createElement('div');
+                    progressBar.className = 'thumbnail-progress';
+                    progressBar.innerHTML = `
+                        <div class="progress-bar">
+                            <div class="progress-fill"></div>
+                        </div>
+                        <div class="progress-text">Queued</div>
+                    `;
+                    mediaContainer.appendChild(progressBar);
                 }
                 
                 thumbnail.alt = media.name;
@@ -1044,16 +1124,64 @@
                 const card = document.querySelector(`[data-relative-path="${CSS.escape(media.relativePath)}"]`);
                 if (card) {
                     const thumbnail = card.querySelector('.image-thumbnail');
+                    const progressBar = card.querySelector('.thumbnail-progress');
+                    
                     if (thumbnail) {
                         thumbnail.src = media.thumbnail;
                         card.classList.remove('pending-thumbnail');
                         card.classList.add('thumbnail-loaded');
+                        
+                        // Remove progress bar
+                        if (progressBar) {
+                            progressBar.remove();
+                        }
                         
                         // Add subtle animation to indicate the update
                         card.style.animation = 'thumbnailLoad 0.3s ease-out';
                         setTimeout(() => {
                             card.style.animation = '';
                         }, 300);
+                    }
+                }
+            }
+            
+            // Update individual thumbnail progress
+            updateThumbnailProgress(media, status, progress) {
+                const card = document.querySelector(`[data-relative-path="${CSS.escape(media.relativePath)}"]`);
+                if (card) {
+                    const progressBar = card.querySelector('.thumbnail-progress');
+                    if (progressBar) {
+                        const progressFill = progressBar.querySelector('.progress-fill');
+                        const progressText = progressBar.querySelector('.progress-text');
+                        
+                        if (progressFill && progressText) {
+                            progressFill.style.width = `${progress}%`;
+                            
+                            // Update status text and colors
+                            switch (status) {
+                                case 'starting':
+                                    progressText.textContent = 'Starting...';
+                                    progressBar.className = 'thumbnail-progress starting';
+                                    break;
+                                case 'processing':
+                                    progressText.textContent = `Processing... ${progress}%`;
+                                    progressBar.className = 'thumbnail-progress processing';
+                                    break;
+                                case 'complete':
+                                    progressText.textContent = 'Complete!';
+                                    progressBar.className = 'thumbnail-progress complete';
+                                    setTimeout(() => {
+                                        if (progressBar.parentNode) {
+                                            progressBar.remove();
+                                        }
+                                    }, 500);
+                                    break;
+                                case 'error':
+                                    progressText.textContent = 'Failed';
+                                    progressBar.className = 'thumbnail-progress error';
+                                    break;
+                            }
+                        }
                     }
                 }
             }

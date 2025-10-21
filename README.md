@@ -26,12 +26,22 @@ Simply run `gallery up` in any folder with media files, and it will automaticall
 ## Installation Methods
 
 ### 🚀 One-Line Install (Recommended)
+
+**Linux/macOS:**
 ```bash
 # Install directly from GitHub (when published)
 curl -fsSL https://raw.githubusercontent.com/blashbrook/image-gallery-server/main/install.sh | bash
 ```
 
+**Windows (PowerShell):**
+```powershell
+# Run in PowerShell (may require Administrator privileges)
+Invoke-Expression (New-Object System.Net.WebClient).DownloadString('https://raw.githubusercontent.com/blashbrook/image-gallery-server/main/install.ps1')
+```
+
 ### 📦 Local Install (Development)
+
+**Linux/macOS:**
 ```bash
 # Clone the repository first
 git clone https://github.com/blashbrook/image-gallery-server.git
@@ -39,6 +49,16 @@ cd image-gallery-server
 
 # Run local installer
 ./install-local.sh
+```
+
+**Windows:**
+```powershell
+# Clone the repository first
+git clone https://github.com/blashbrook/image-gallery-server.git
+cd image-gallery-server
+
+# Run local installer
+.\install.ps1
 ```
 
 ### 🔧 Manual Install
@@ -51,12 +71,26 @@ npm install -g image-gallery-server
 ```
 
 ### 🗑️ Uninstall
+
+**Linux/macOS:**
 ```bash
 # Using installer script
 curl -fsSL https://raw.githubusercontent.com/blashbrook/image-gallery-server/main/install.sh | bash -s -- --uninstall
 
 # Or local uninstall
 ./install-local.sh --uninstall
+
+# Or manual uninstall
+npm uninstall -g image-gallery-server
+```
+
+**Windows:**
+```powershell
+# Using installer script
+Invoke-Expression (New-Object System.Net.WebClient).DownloadString('https://raw.githubusercontent.com/blashbrook/image-gallery-server/main/install.ps1'); .\install.ps1 -Uninstall
+
+# Or local uninstall
+.\install.ps1 -Uninstall
 
 # Or manual uninstall
 npm uninstall -g image-gallery-server

@@ -208,6 +208,55 @@ uninstall() {
     exit 0
 }
 
+# Smart shell restart that detects terminal environment
+restart_shell() {
+    # Detect if we're in a modern terminal that shouldn't be restarted
+    local skip_restart=false
+    
+    # Check for Warp terminal
+    if [ -n "$WARP_TERMINAL" ] || [ "$TERM_PROGRAM" = "WarpTerminal" ]; then
+        info "Warp terminal detected - PATH will be updated on next command"
+        skip_restart=true
+    # Check for VSCode integrated terminal
+    elif [ -n "$VSCODE_INJECTION" ] || [ "$TERM_PROGRAM" = "vscode" ]; then
+        info "VSCode terminal detected - PATH will be updated automatically"
+        skip_restart=true
+    # Check for other modern terminals
+    elif [ "$TERM_PROGRAM" = "iTerm.app" ] || [ "$TERM_PROGRAM" = "Apple_Terminal" ]; then
+        info "Modern terminal detected - recommending manual refresh"
+        skip_restart=true
+    # Check if we're in tmux or screen
+    elif [ -n "$TMUX" ] || [ -n "$STY" ]; then
+        info "Terminal multiplexer detected - PATH will update on next shell"
+        skip_restart=true
+    fi
+    
+    if [ "$skip_restart" = true ]; then
+        echo "💡 PATH updated! The 'gallery' command will be available:"
+        echo "   • In new terminal tabs/windows"
+        echo "   • After running: source ~/.$(basename $SHELL)rc"
+        echo "   • Or simply try 'gallery up' now - it might already work!"
+        return
+    fi
+    
+    # Traditional shell restart for basic terminals
+    echo "💡 Restarting shell to update PATH..."
+    
+    # Try to restart the shell intelligently
+    if [ "$SHELL" = "/bin/zsh" ] || [ "$SHELL" = "/usr/bin/zsh" ]; then
+        echo "Starting new zsh session..."
+        exec zsh
+    elif [ "$SHELL" = "/bin/bash" ] || [ "$SHELL" = "/usr/bin/bash" ]; then
+        echo "Starting new bash session..."
+        exec bash
+    elif [ "$SHELL" = "/bin/fish" ] || [ "$SHELL" = "/usr/bin/fish" ]; then
+        echo "Starting new fish session..."
+        exec fish
+    else
+        echo "Please restart your shell or run: source ~/.$(basename $SHELL)rc"
+    fi
+}
+
 # Main installation flow
 main() {
     echo ""
@@ -247,18 +296,9 @@ main() {
     echo "🚀 Ready to create beautiful image galleries!"
     echo "   Start with: gallery up"
     echo ""
-    echo "💡 Restarting shell to update PATH..."
     
-    # Try to restart the shell
-    if [ "$SHELL" = "/bin/zsh" ] || [ "$SHELL" = "/usr/bin/zsh" ]; then
-        echo "exec zsh" 
-        exec zsh
-    elif [ "$SHELL" = "/bin/bash" ] || [ "$SHELL" = "/usr/bin/bash" ]; then
-        echo "exec bash"
-        exec bash
-    else
-        echo "Please restart your shell or run: source ~/.bashrc (or ~/.zshrc)"
-    fi
+    # Smart shell restart detection
+    restart_shell
 }
 
 # Run main function with all arguments

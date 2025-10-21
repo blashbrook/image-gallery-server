@@ -253,29 +253,106 @@ async function hasThumbnail(media) {
     }
 }
 
-// Generate thumbnail and broadcast update to clients
-async function generateThumbnailWithBroadcast(media) {
-    const thumbnailUrl = await getThumbnail(media);
-    if (thumbnailUrl) {
-        // Broadcast thumbnail completion to all clients
-        const updateData = {
-            type: 'thumbnail_ready',
-            media: {
-                ...media,
-                thumbnail: thumbnailUrl,
-                url: `/image/${encodeURIComponent(media.relativePath)}`
-            }
-        };
+// Broadcast thumbnail progress to clients
+function broadcastThumbnailProgress(media, status, progress = 0) {
+    const updateData = {
+        type: 'thumbnail_progress',
+        media: {
+            relativePath: media.relativePath,
+            name: media.name
+        },
+        status, // 'starting', 'processing', 'complete', 'error'
+        progress // 0-100
+    };
+    
+    sseClients.forEach(client => {
+        try {
+            client.write(`data: ${JSON.stringify(updateData)}\n\n`);
+        } catch (error) {
+            sseClients.delete(client);
+        }
+    });
+}
+
+// Generate thumbnail with progress updates
+async function generateThumbnailWithProgress(media) {
+    const thumbnailName = `${Buffer.from(media.relativePath).toString('base64')}.jpg`;
+    const thumbnailPath = path.join(THUMBNAILS_DIR, thumbnailName);
+    
+    try {
+        // Check if thumbnail already exists
+        await fs.access(thumbnailPath);
+        return `/static/thumbnails/${thumbnailName}`;
+    } catch {
+        // Thumbnail doesn't exist, generate it with progress
+        broadcastThumbnailProgress(media, 'starting', 0);
         
-        sseClients.forEach(client => {
-            try {
-                client.write(`data: ${JSON.stringify(updateData)}\n\n`);
-            } catch (error) {
-                sseClients.delete(client);
+        try {
+            broadcastThumbnailProgress(media, 'processing', 25);
+            
+            if (media.type === 'image') {
+                broadcastThumbnailProgress(media, 'processing', 50);
+                await sharp(media.path)
+                    .resize(300, 300, { 
+                        fit: 'inside',
+                        withoutEnlargement: true
+                    })
+                    .jpeg({ quality: 80 })
+                    .toFile(thumbnailPath);
+                broadcastThumbnailProgress(media, 'processing', 90);
+            } else if (media.type === 'video') {
+                broadcastThumbnailProgress(media, 'processing', 50);
+                // Create video placeholder
+                await sharp({
+                    create: {
+                        width: 300,
+                        height: 200,
+                        channels: 3,
+                        background: { r: 52, g: 73, b: 94 }
+                    }
+                })
+                .composite([{
+                    input: Buffer.from(`<svg width="100" height="100" xmlns="http://www.w3.org/2000/svg">
+                        <circle cx="50" cy="50" r="30" fill="white" opacity="0.8"/>
+                        <polygon points="40,35 40,65 65,50" fill="#2c3e50"/>
+                    </svg>`),
+                    left: 100,
+                    top: 50
+                }])
+                .jpeg({ quality: 80 })
+                .toFile(thumbnailPath);
+                broadcastThumbnailProgress(media, 'processing', 90);
             }
-        });
+            
+            const thumbnailUrl = `/static/thumbnails/${thumbnailName}`;
+            
+            // Broadcast completion with final thumbnail
+            const completionData = {
+                type: 'thumbnail_ready',
+                media: {
+                    ...media,
+                    thumbnail: thumbnailUrl,
+                    url: `/image/${encodeURIComponent(media.relativePath)}`
+                }
+            };
+            
+            sseClients.forEach(client => {
+                try {
+                    client.write(`data: ${JSON.stringify(completionData)}\n\n`);
+                } catch (error) {
+                    sseClients.delete(client);
+                }
+            });
+            
+            broadcastThumbnailProgress(media, 'complete', 100);
+            return thumbnailUrl;
+            
+        } catch (error) {
+            console.warn(`Failed to generate thumbnail for ${media.path}:`, error.message);
+            broadcastThumbnailProgress(media, 'error', 0);
+            return null;
+        }
     }
-    return thumbnailUrl;
 }
 
 // Invalidate cache and broadcast update
@@ -462,7 +539,7 @@ async function generateThumbnailsInBackground(pendingImages) {
         // Process batch concurrently
         const promises = batch.map(async (image) => {
             try {
-                await generateThumbnailWithBroadcast(image);
+                await generateThumbnailWithProgress(image);
             } catch (error) {
                 console.warn(`Failed to generate thumbnail for ${image.name}:`, error.message);
             }
