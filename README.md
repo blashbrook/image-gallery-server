@@ -23,6 +23,50 @@ Simply run `gallery up` in any folder with media files, and it will automaticall
 - **Images**: JPG, PNG, GIF, BMP, WebP, TIFF, SVG
 - **Videos**: MP4, MOV, AVI, MKV, WebM, OGG, M4V, 3GP, WMV, FLV
 
+## System Requirements
+
+### **Minimum Requirements:**
+- **Node.js**: 18.0.0 or higher
+- **npm**: 6.0.0 or higher (usually bundled with Node.js)
+- **Operating System**: 
+  - macOS 10.13+ (High Sierra)
+  - Linux (Ubuntu 18.04+, CentOS 7+, or equivalent)
+  - Windows 10+ (with PowerShell 3.0+)
+- **Memory**: 512MB RAM minimum, 1GB+ recommended for large galleries
+- **Storage**: 50MB for application + additional space for thumbnail cache
+
+### **Platform-Specific Dependencies:**
+
+#### **Linux:**
+- **Build tools**: `build-essential` (Ubuntu/Debian) or `gcc-c++` (CentOS/RHEL)
+- **Python**: 3.6+ (for Sharp native compilation)
+- **Additional packages**: May need `libvips-dev` for Sharp optimization
+
+#### **macOS:**
+- **Xcode Command Line Tools**: Required for Sharp compilation
+- Install with: `xcode-select --install`
+
+#### **Windows:**
+- **Visual Studio Build Tools** or **Visual Studio 2019+**
+- **Python**: 3.6+ (Microsoft Store version recommended)
+- **PowerShell**: 3.0+ (Windows 10+ includes 5.1+)
+
+### **Supported Image Formats:**
+- **Images**: JPEG, PNG, GIF, BMP, WebP, TIFF, SVG
+- **Videos**: MP4, MOV, AVI, MKV, WebM, OGG, M4V, 3GP, WMV, FLV
+
+### **Performance Considerations:**
+- **Concurrent Processing**: Processes 3 thumbnails simultaneously
+- **Thumbnail Size**: 300×300px JPEG (quality 80%)
+- **Cache Size**: ~10-50KB per thumbnail depending on image complexity
+- **Memory Usage**: ~100-200MB base + ~1-2MB per 1000 images
+- **CPU Usage**: Moderate during initial thumbnail generation, minimal during serving
+
+### **Network Requirements:**
+- **Local Network**: Gallery accessible on local network by default
+- **Port Range**: 3000-3099 (automatic port selection if 3000 in use)
+- **Bandwidth**: Minimal - thumbnails cached locally, full images served on-demand
+
 ## Installation Methods
 
 ### 🚀 One-Line Install (Recommended)
@@ -292,6 +336,37 @@ PORT=8080 node server.js /path/to/images
 - Efficient loading on mobile networks
 
 ## Troubleshooting
+
+### System Requirements Issues
+
+**Q: Installation fails with "Node.js version too old" error**
+- Update Node.js to 18.0.0 or higher from [nodejs.org](https://nodejs.org/)
+- Verify version: `node --version`
+
+**Q: Sharp installation fails on Linux**
+- Install build tools: `sudo apt-get install build-essential python3-dev` (Ubuntu/Debian)
+- Or: `sudo yum install gcc-c++ python3-devel` (CentOS/RHEL)
+- For better performance: `sudo apt-get install libvips-dev`
+
+**Q: "gyp ERR!" during installation on Windows**
+- Install Visual Studio Build Tools or Visual Studio with C++ tools
+- Alternative: Install windows-build-tools: `npm install -g windows-build-tools`
+- Ensure Python 3.6+ is installed and in PATH
+
+**Q: Sharp installation fails on macOS**
+- Install Xcode Command Line Tools: `xcode-select --install`
+- Update macOS to latest version if using older hardware
+- For Apple Silicon Macs: Ensure Node.js is ARM64 version
+
+**Q: "Permission denied" errors during installation**
+- On macOS/Linux: Use `sudo` or configure npm for global installs without sudo
+- Configure npm: `npm config set prefix ~/.local` and add `~/.local/bin` to PATH
+- On Windows: Run PowerShell as Administrator
+
+**Q: Gallery server won't start**
+- Check Node.js version: `node --version` (must be 18+)
+- Verify port availability: `netstat -an | grep 3000`
+- Check file permissions in installation directory
 
 ### Common Issues
 
