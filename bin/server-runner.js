@@ -834,9 +834,27 @@ async function generateIndexHTML() {
             position: sticky;
             top: 0;
             z-index: 100;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
         }
-        .header h1 { font-size: 1.5rem; margin: 0; }
+        .header-left { display: flex; align-items: center; gap: 0.75rem; }
+        .header-icon { width: 28px; height: 28px; }
+        .header-content h1 { font-size: 1.5rem; margin: 0; line-height: 1.2; }
+        .header-path { font-size: 0.75rem; color: var(--text-secondary); margin-top: 0.15rem; }
         .info { font-size: 0.9rem; color: var(--text-secondary); margin-top: 0.25rem; }
+        .header-actions { display: flex; gap: 0.5rem; align-items: center; }
+        .header-btn {
+            padding: 0.4rem 0.75rem;
+            border: 1px solid rgba(0,0,0,0.1);
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.85rem;
+            transition: all 0.2s;
+        }
+        .header-btn:hover { background: #e9ecef; transform: translateY(-1px); }
         .gallery { column-count: 5; column-gap: 15px; padding: 0 2rem 2rem; }
         .gallery-item {
             break-inside: avoid;
@@ -910,7 +928,23 @@ async function generateIndexHTML() {
     </style>
 </head>
 <body>
-    <div class="header"><div><h1>📷 Gallery</h1><div class="info" id="gallery-info">Loading...</div></div></div>
+    <div class="header">
+        <div class="header-left">
+            <svg class="header-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
+                <circle cx="12" cy="13" r="4"></circle>
+            </svg>
+            <div class="header-content">
+                <h1>Gallery</h1>
+                <div class="header-path" id="gallery-path"></div>
+                <div class="info" id="gallery-info">Loading...</div>
+            </div>
+        </div>
+        <div class="header-actions">
+            <button class="header-btn" id="rescanBtn" onclick="rescanGallery()">🔄 Rescan</button>
+            <button class="header-btn" id="themeBtn" onclick="toggleTheme()">🌙 Theme</button>
+        </div>
+    </div>
     <div class="gallery" id="gallery"></div>
     <div class="modal" id="imageModal">
         <div class="close" id="closeModal">✕</div>
@@ -934,7 +968,8 @@ async function generateIndexHTML() {
         async function loadGallery() {
             const response = await fetch('/api/gallery');
             const data = await response.json();
-            document.getElementById('gallery-info').textContent = \`Found \${data.totalImages} media files\`;
+            document.getElementById('gallery-info').textContent = 'Found ' + data.totalImages + ' media files';
+            document.getElementById('gallery-path').textContent = window.location.hostname + ':' + window.location.port;
             Object.values(data.galleries).flat().forEach(media => {
                 const item = document.createElement('div');
                 item.className = 'gallery-item';
@@ -946,6 +981,36 @@ async function generateIndexHTML() {
                 item.onclick = () => openModal(media);
                 document.getElementById('gallery').appendChild(item);
             });
+        }
+        
+        async function rescanGallery() {
+            document.getElementById('rescanBtn').textContent = '⏳ Scanning...';
+            try {
+                await fetch('/api/rescan', { method: 'POST' });
+                window.location.reload();
+            } catch (e) {
+                document.getElementById('rescanBtn').textContent = '❌ Error';
+                setTimeout(() => { document.getElementById('rescanBtn').textContent = '🔄 Rescan'; }, 2000);
+            }
+        }
+        
+        function toggleTheme() {
+            const root = document.documentElement;
+            const btn = document.getElementById('themeBtn');
+            const current = root.style.getPropertyValue('--bg-primary') || '#ffffff';
+            if (current === '#ffffff') {
+                root.style.setProperty('--bg-primary', '#1a1a1a');
+                root.style.setProperty('--bg-secondary', '#2d2d2d');
+                root.style.setProperty('--text-primary', '#e0e0e0');
+                root.style.setProperty('--text-secondary', '#a0a0a0');
+                btn.textContent = '☀️ Theme';
+            } else {
+                root.style.setProperty('--bg-primary', '#ffffff');
+                root.style.setProperty('--bg-secondary', '#f8f9fa');
+                root.style.setProperty('--text-primary', '#2c3e50');
+                root.style.setProperty('--text-secondary', '#7f8c8d');
+                btn.textContent = '🌙 Theme';
+            }
         }
         
         function openModal(media) {
@@ -974,8 +1039,8 @@ async function generateIndexHTML() {
         
         function zoom(delta) {
             scale = Math.max(0.1, Math.min(5, scale + delta));
-            modalImg.style.transform = \`translate(\${translateX}px, \${translateY}px) scale(\${scale})\`;
-            zoomInfo.textContent = \`\${Math.round(scale * 100)}%\`;
+            modalImg.style.transform = 'translate(' + translateX + 'px, ' + translateY + 'px) scale(' + scale + ')';
+            zoomInfo.textContent = Math.round(scale * 100) + '%';
         }
         
         function resetZoom() { scale = 1; translateX = 0; translateY = 0; zoom(0); }

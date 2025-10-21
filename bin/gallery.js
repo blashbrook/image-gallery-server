@@ -621,8 +621,11 @@ program
                 console.log(`\n   Continue? (y/N):`);
                 
                 // Simple confirmation (in a real CLI, you'd use a proper prompt library)
+                process.stdin.setRawMode(false);
+                process.stdin.resume();
                 const response = await new Promise((resolve) => {
                     process.stdin.once('data', (data) => {
+                        process.stdin.pause();
                         resolve(data.toString().trim().toLowerCase());
                     });
                 });
@@ -641,6 +644,7 @@ program
             } else {
                 console.log('\n📂 No .gallery-cache directories found');
             }
+            process.exit(0);
         } catch (error) {
             console.error('Failed to delete gallery files:', error.message);
             process.exit(1);
