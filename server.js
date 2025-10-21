@@ -23,6 +23,7 @@ async function ensureDirectories() {
     await fs.mkdir(METADATA_DIR, { recursive: true });
     await fs.mkdir(THUMBNAILS_DIR, { recursive: true });
     await fs.mkdir(path.join(__dirname, 'static'), { recursive: true });
+    await fs.mkdir(GALLERY_CACHE_DIR, { recursive: true });
 }
 
 // Check if file is an image
@@ -90,6 +91,442 @@ async function findAvailablePort(startPort) {
         port++;
     }
     throw new Error('No available port found');
+}
+
+// Generate gallery HTML file
+async function generateGalleryHTML() {
+    const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Image Gallery</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
+            background: #1a1a1a;
+            color: #fff;
+            padding: 20px;
+        }
+
+        .header {
+            max-width: 1400px;
+            margin: 0 auto 40px;
+        }
+
+        .header h1 {
+            font-size: 2rem;
+            margin-bottom: 10px;
+        }
+
+        .header .info {
+            font-size: 0.9rem;
+            color: #999;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #999;
+        }
+
+        .spinner {
+            display: inline-block;
+            width: 30px;
+            height: 30px;
+            border: 3px solid rgba(255, 255, 255, 0.1);
+            border-radius: 50%;
+            border-top-color: #fff;
+            animation: spin 0.8s linear infinite;
+            margin-right: 10px;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .gallery-container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .gallery-section {
+            margin-bottom: 50px;
+        }
+
+        .gallery-title {
+            font-size: 1.3rem;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #333;
+            color: #ccc;
+        }
+
+        .gallery-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 15px;
+        }
+
+        .thumbnail-item {
+            position: relative;
+            aspect-ratio: 1;
+            background: #2a2a2a;
+            border-radius: 8px;
+            overflow: hidden;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            border: 1px solid #333;
+        }
+
+        .thumbnail-item:hover {
+            transform: scale(1.02);
+            box-shadow: 0 0 20px rgba(255, 255, 255, 0.1);
+        }
+
+        .thumbnail-item img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
+        }
+
+        .thumbnail-item.loading-state {
+            background: linear-gradient(90deg, #333 0%, #444 50%, #333 100%);
+            background-size: 200% 100%;
+            animation: shimmer 1.5s infinite;
+        }
+
+        @keyframes shimmer {
+            0% { background-position: 200% 0; }
+            100% { background-position: -200% 0; }
+        }
+
+        .video-badge {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.95);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal.active {
+            display: flex;
+        }
+
+        .modal-content {
+            position: relative;
+            max-width: 90vw;
+            max-height: 90vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .modal-image {
+            max-width: 100%;
+            max-height: 80vh;
+            border-radius: 8px;
+        }
+
+        .modal-close {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: rgba(0, 0, 0, 0.7);
+            border: none;
+            color: #fff;
+            font-size: 2rem;
+            cursor: pointer;
+            width: 50px;
+            height: 50px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            transition: background 0.2s;
+        }
+
+        .modal-close:hover {
+            background: rgba(0, 0, 0, 0.9);
+        }
+
+        .modal-nav {
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+            background: rgba(0, 0, 0, 0.7);
+            border: none;
+            color: #fff;
+            font-size: 1.5rem;
+            cursor: pointer;
+            padding: 20px;
+            border-radius: 8px;
+            transition: background 0.2s;
+        }
+
+        .modal-nav:hover {
+            background: rgba(0, 0, 0, 0.9);
+        }
+
+        .modal-nav.prev {
+            left: 20px;
+        }
+
+        .modal-nav.next {
+            right: 20px;
+        }
+
+        .error-message {
+            color: #ff6b6b;
+            text-align: center;
+            padding: 20px;
+            background: rgba(255, 107, 107, 0.1);
+            border-radius: 8px;
+            margin: 20px auto;
+            max-width: 1400px;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🖼️ Image Gallery</h1>
+        <div class="info">
+            <span id="stats">Loading...</span>
+        </div>
+    </div>
+
+    <div class="loading" id="initialLoading">
+        <div class="spinner"></div>
+        <span>Scanning directory...</span>
+    </div>
+
+    <div id="error" class="error-message" style="display: none;"></div>
+
+    <div class="gallery-container" id="gallery" style="display: none;"></div>
+
+    <!-- Modal for full-size image viewing -->
+    <div class="modal" id="modal">
+        <button class="modal-close" onclick="closeModal()">×</button>
+        <button class="modal-nav prev" onclick="prevImage()">‹</button>
+        <div class="modal-content">
+            <img class="modal-image" id="modalImage" />
+        </div>
+        <button class="modal-nav next" onclick="nextImage()">›</button>
+    </div>
+
+    <script>
+        let galleryData = null;
+        let useLazyLoading = false;
+        let allImages = [];
+        let currentImageIndex = 0;
+        let imageObserver = null;
+
+        // Load gallery data
+        async function loadGallery() {
+            try {
+                const response = await fetch('/api/gallery');
+                galleryData = await response.json();
+                useLazyLoading = galleryData.useLazyLoading;
+                
+                document.getElementById('initialLoading').style.display = 'none';
+                renderGallery();
+                
+                if (useLazyLoading) {
+                    setupLazyLoading();
+                }
+                
+                document.getElementById('gallery').style.display = 'block';
+                updateStats();
+            } catch (error) {
+                showError('Failed to load gallery: ' + error.message);
+            }
+        }
+
+        // Render gallery sections
+        function renderGallery() {
+            const gallery = document.getElementById('gallery');
+            gallery.innerHTML = '';
+            
+            Object.entries(galleryData.galleries).forEach(([directory, images]) => {
+                const section = document.createElement('div');
+                section.className = 'gallery-section';
+                
+                const title = document.createElement('h2');
+                title.className = 'gallery-title';
+                title.textContent = directory === '.' ? 'Root Directory' : directory;
+                section.appendChild(title);
+                
+                const grid = document.createElement('div');
+                grid.className = 'gallery-grid';
+                
+                images.forEach(image => {
+                    allImages.push(image);
+                    const item = createThumbnailItem(image);
+                    grid.appendChild(item);
+                });
+                
+                section.appendChild(grid);
+                gallery.appendChild(section);
+            });
+        }
+
+        // Create thumbnail item element
+        function createThumbnailItem(image) {
+            const item = document.createElement('div');
+            item.className = 'thumbnail-item';
+            if (useLazyLoading) {
+                item.classList.add('loading-state');
+            }
+            item.id = 'img-' + btoa(image.relativePath);
+            
+            const img = document.createElement('img');
+            img.src = image.thumbnail;
+            img.alt = image.name;
+            img.dataset.relativePath = image.relativePath;
+            img.dataset.index = allImages.length - 1;
+            
+            if (image.type === 'video') {
+                const badge = document.createElement('div');
+                badge.className = 'video-badge';
+                badge.innerHTML = '▶ VIDEO';
+                item.appendChild(badge);
+            }
+            
+            item.appendChild(img);
+            item.addEventListener('click', () => openModal(allImages.length - 1));
+            
+            return item;
+        }
+
+        // Setup lazy loading with Intersection Observer
+        function setupLazyLoading() {
+            imageObserver = new IntersectionObserver((entries) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        const img = entry.target;
+                        const relativePath = img.dataset.relativePath;
+                        
+                        // Load high-res thumbnail
+                        loadHighResThumbnail(relativePath, img);
+                        imageObserver.unobserve(entry.target);
+                    }
+                });
+            }, {
+                rootMargin: '100px' // Start loading 100px before visible
+            });
+            
+            // Observe all images
+            document.querySelectorAll('.gallery-grid img').forEach(img => {
+                imageObserver.observe(img);
+            });
+        }
+
+        // Load high-resolution thumbnail
+        async function loadHighResThumbnail(relativePath, imgElement) {
+            try {
+                const response = await fetch('/api/thumbnail/' + encodeURIComponent(relativePath));
+                const data = await response.json();
+                
+                if (data.thumbnail) {
+                    imgElement.src = data.thumbnail;
+                    imgElement.parentElement.classList.remove('loading-state');
+                }
+            } catch (error) {
+                console.warn('Failed to load high-res thumbnail for ' + relativePath + ':', error);
+            }
+        }
+
+        // Modal functions
+        function openModal(index) {
+            currentImageIndex = index;
+            const image = allImages[index];
+            const modalImage = document.getElementById('modalImage');
+            modalImage.src = image.url;
+            document.getElementById('modal').classList.add('active');
+            document.body.style.overflow = 'hidden';
+        }
+
+        function closeModal() {
+            document.getElementById('modal').classList.remove('active');
+            document.body.style.overflow = 'auto';
+        }
+
+        function nextImage() {
+            currentImageIndex = (currentImageIndex + 1) % allImages.length;
+            openModal(currentImageIndex);
+        }
+
+        function prevImage() {
+            currentImageIndex = (currentImageIndex - 1 + allImages.length) % allImages.length;
+            openModal(currentImageIndex);
+        }
+
+        // Update statistics
+        function updateStats() {
+            const total = galleryData.totalImages;
+            const modeText = useLazyLoading ? ' (Lazy Loading Enabled)' : '';
+            document.getElementById('stats').textContent = 'Total: ' + total + ' images' + modeText;
+        }
+
+        // Show error message
+        function showError(message) {
+            document.getElementById('initialLoading').style.display = 'none';
+            const errorDiv = document.getElementById('error');
+            errorDiv.textContent = message;
+            errorDiv.style.display = 'block';
+        }
+
+        // Keyboard navigation
+        document.addEventListener('keydown', (e) => {
+            if (!document.getElementById('modal').classList.contains('active')) return;
+            
+            if (e.key === 'ArrowRight') nextImage();
+            else if (e.key === 'ArrowLeft') prevImage();
+            else if (e.key === 'Escape') closeModal();
+        });
+
+        // Close modal on background click
+        document.getElementById('modal').addEventListener('click', (e) => {
+            if (e.target === document.getElementById('modal')) closeModal();
+        });
+
+        // Load gallery on page load
+        window.addEventListener('load', loadGallery);
+    </script>
+</body>
+</html>`;
+
+    try {
+        await fs.writeFile(GENERATED_HTML_FILE, html);
+        console.log(`Generated gallery HTML to ${GENERATED_HTML_FILE}`);
+    } catch (error) {
+        console.warn(`Failed to generate gallery HTML:`, error.message);
+    }
 }
 
 // Broadcast progress to all SSE clients
@@ -216,9 +653,11 @@ async function generateThumbnail(mediaPath, thumbnailPath, mediaType) {
     return false;
 }
 
-// Get or create thumbnail
-async function getThumbnail(media) {
-    const thumbnailName = `${Buffer.from(media.relativePath).toString('base64')}.jpg`;
+// Get or create thumbnail with specified resolution
+async function getThumbnail(media, resolution = 'high') {
+    const base64Name = Buffer.from(media.relativePath).toString('base64');
+    const suffix = resolution === 'low' ? '_low' : '';
+    const thumbnailName = `${base64Name}${suffix}.jpg`;
     const thumbnailPath = path.join(THUMBNAILS_DIR, thumbnailName);
     
     try {
@@ -226,7 +665,8 @@ async function getThumbnail(media) {
         return `/static/thumbnails/${thumbnailName}`;
     } catch {
         // Thumbnail doesn't exist, create it
-        if (await generateThumbnail(media.path, thumbnailPath, media.type)) {
+        const generator = resolution === 'low' ? generateLowResThumbnail : generateThumbnail;
+        if (await generator(media.path, thumbnailPath, media.type)) {
             return `/static/thumbnails/${thumbnailName}`;
         }
         return null;
@@ -272,6 +712,7 @@ app.get('/api/gallery', async (req, res) => {
     try {
         console.log(`Scanning directory: ${SCAN_DIR}`);
         const images = await scanDirectory(SCAN_DIR, true);
+        const useLazyLoading = images.length >= 500;
         
         // Group images by directory
         const galleries = {};
@@ -281,12 +722,21 @@ app.get('/api/gallery', async (req, res) => {
                 galleries[image.directory] = [];
             }
             
-            // Get thumbnail URL
-            const thumbnailUrl = await getThumbnail(image);
+            let thumbnail, thumbnailHigh;
+            if (useLazyLoading) {
+                // For large collections, generate low-res thumbnail only
+                thumbnail = await getThumbnail(image, 'low');
+                thumbnailHigh = null; // Will be generated on-demand
+            } else {
+                // For small collections, generate high-res immediately
+                thumbnail = await getThumbnail(image, 'high');
+                thumbnailHigh = null;
+            }
             
             galleries[image.directory].push({
                 ...image,
-                thumbnail: thumbnailUrl,
+                thumbnail,
+                thumbnailHigh,
                 url: `/image/${encodeURIComponent(image.relativePath)}`
             });
         }
@@ -294,11 +744,54 @@ app.get('/api/gallery', async (req, res) => {
         res.json({
             scanDirectory: SCAN_DIR,
             totalImages: images.length,
+            useLazyLoading,
             galleries
         });
     } catch (error) {
         console.error('Error scanning directory:', error);
         res.status(500).json({ error: 'Failed to scan directory' });
+    }
+});
+
+// Request high-resolution thumbnail (for lazy loading)
+app.get('/api/thumbnail/:path(*)', async (req, res) => {
+    try {
+        const imagePath = path.join(SCAN_DIR, decodeURIComponent(req.params.path));
+        
+        // Security check: ensure path is within scan directory
+        const resolvedPath = path.resolve(imagePath);
+        const resolvedScanDir = path.resolve(SCAN_DIR);
+        
+        if (!resolvedPath.startsWith(resolvedScanDir)) {
+            return res.status(403).json({ error: 'Access denied' });
+        }
+        
+        // Check if file exists
+        await fs.access(imagePath);
+        
+        const relativePath = path.relative(SCAN_DIR, imagePath);
+        const isImageFile = isImage(path.basename(imagePath));
+        const isVideoFile = isVideo(path.basename(imagePath));
+        
+        if (!isImageFile && !isVideoFile) {
+            return res.status(400).json({ error: 'Not a media file' });
+        }
+        
+        const media = {
+            path: imagePath,
+            relativePath,
+            type: isImageFile ? 'image' : 'video'
+        };
+        
+        const thumbnail = await getThumbnail(media, 'high');
+        
+        if (thumbnail) {
+            res.json({ thumbnail });
+        } else {
+            res.status(500).json({ error: 'Failed to generate thumbnail' });
+        }
+    } catch (error) {
+        res.status(404).json({ error: 'Media file not found' });
     }
 });
 
@@ -324,12 +817,17 @@ app.get('/image/:path(*)', async (req, res) => {
 
 // Serve the main gallery page
 app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, 'public', 'index.html'));
+    res.sendFile(GENERATED_HTML_FILE, (err) => {
+        if (err) {
+            res.status(500).json({ error: 'Gallery HTML not available' });
+        }
+    });
 });
 
 // Start server
 async function startServer() {
     await ensureDirectories();
+    await generateGalleryHTML();
     
     // Find an available port
     PORT = await findAvailablePort(PORT);
