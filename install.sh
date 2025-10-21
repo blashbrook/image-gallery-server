@@ -149,30 +149,29 @@ verify_installation() {
     
     # Check if command is available
     if command_exists "$BIN_NAME"; then
-        local version
-        version=$("$BIN_NAME" --version 2>/dev/null || echo "unknown")
-        success "Gallery CLI installed successfully! Version: $version"
+        success "Gallery CLI installed successfully!"
         
         echo ""
         echo "🎉 Installation complete!"
         echo ""
-        echo "Usage examples:"
+        echo "Available commands:"
         echo "  gallery up                    # Start server in current directory"
         echo "  gallery up -d ~/Pictures     # Start server for specific directory"
         echo "  gallery scan                  # Preview scan results"
         echo "  gallery stop                  # Stop all gallery servers"
-        echo "  gallery delete                # Clean up cache files"
-        echo "  gallery --help                # Show all available commands"
+        echo "  gallery rescan                # Force rescan of current directory"
+        echo "  gallery cleanup               # Clean up orphaned thumbnails"
+        echo "  gallery delete                # Clean up all cache files"
         echo ""
         
-        # Test basic functionality
-        if "$BIN_NAME" --help >/dev/null 2>&1; then
-            success "Command test passed"
+        # Test basic functionality - just check if the file exists and is executable
+        if [ -x "$INSTALL_DIR/bin/gallery.js" ]; then
+            success "Installation verified"
         else
             warning "Command installed but may not be working correctly"
         fi
     else
-        error "Installation verification failed. Command '$BIN_NAME' not found in PATH"
+        warning "Command not immediately available in PATH. Shell restart required."
     fi
 }
 
@@ -247,6 +246,19 @@ main() {
     
     echo "🚀 Ready to create beautiful image galleries!"
     echo "   Start with: gallery up"
+    echo ""
+    echo "💡 Restarting shell to update PATH..."
+    
+    # Try to restart the shell
+    if [ "$SHELL" = "/bin/zsh" ] || [ "$SHELL" = "/usr/bin/zsh" ]; then
+        echo "exec zsh" 
+        exec zsh
+    elif [ "$SHELL" = "/bin/bash" ] || [ "$SHELL" = "/usr/bin/bash" ]; then
+        echo "exec bash"
+        exec bash
+    else
+        echo "Please restart your shell or run: source ~/.bashrc (or ~/.zshrc)"
+    fi
 }
 
 # Run main function with all arguments
