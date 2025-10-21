@@ -7,10 +7,14 @@ Simply run `gallery up` in any folder with media files, and it will automaticall
 ## Features
 
 ✨ **Modern Web Interface**
-- Masonry/Pinterest-style wall layout
-- Real-time scanning progress display
+- Organized gallery with folder sections
+- Real-time thumbnail generation with progress bar
+- Instant tiny preview thumbnails for immediate feedback
 - Pan and zoom functionality for images
 - Video playback support
+- Favorite/heart images with persistent storage
+- Filter to show only favorited images
+- Fullscreen mode and dark/light theme toggle
 - Responsive design for all devices
 
 🚀 **Easy to Use**
@@ -56,11 +60,18 @@ Simply run `gallery up` in any folder with media files, and it will automaticall
 - **Videos**: MP4, MOV, AVI, MKV, WebM, OGG, M4V, 3GP, WMV, FLV
 
 ### **Performance Considerations:**
-- **Concurrent Processing**: Processes 3 thumbnails simultaneously
-- **Thumbnail Size**: 300×300px JPEG (quality 80%)
-- **Cache Size**: ~10-50KB per thumbnail depending on image complexity
+- **Two-Phase Thumbnail Generation**: 
+  - Phase 1: Instant 64×64 tiny previews (blurred) for immediate visual feedback
+  - Phase 2: Full 300×300px thumbnails generated in background
+- **Adaptive Batch Processing**: 
+  - Small galleries (<100 images): 3 concurrent thumbnails
+  - Medium galleries (100-500): 6 concurrent thumbnails
+  - Large galleries (500+): 10 concurrent thumbnails
+- **Thumbnail Size**: 300×300px JPEG (quality 80%) + 64×64px tiny preview
+- **Cache Size**: ~10-50KB per full thumbnail + ~2KB per tiny preview
 - **Memory Usage**: ~100-200MB base + ~1-2MB per 1000 images
 - **CPU Usage**: Moderate during initial thumbnail generation, minimal during serving
+- **Progressive Loading**: Server-Sent Events (SSE) for real-time thumbnail updates
 
 ### **Network Requirements:**
 - **Local Network**: Gallery accessible on local network by default
@@ -261,6 +272,21 @@ GET /api/gallery
 ```
 Returns JSON with all images organized by directory structure.
 
+### Server-Sent Events (SSE)
+```
+GET /progress
+```
+Real-time thumbnail generation progress and updates:
+- `tiny_preview_ready`: When 64×64 preview is generated
+- `thumbnail_ready`: When full 300×300 thumbnail is complete
+- `global_thumbnail_progress`: Overall progress with current file
+
+### Force Rescan
+```
+POST /api/rescan
+```
+Invalidates cache and rescans directory for new files.
+
 ### View Individual Image
 ```
 GET /image/:path
@@ -270,9 +296,8 @@ Serves the full-resolution image file.
 ### Static Files
 ```
 GET /static/*
-GET /public/*
 ```
-Serves thumbnails and web assets.
+Serves thumbnails and cached files from `.gallery-cache/`.
 
 ## Directory Structure
 
@@ -313,10 +338,25 @@ PORT=8080 node server.js /path/to/images
 ## Features in Detail
 
 ### Thumbnail Generation
-- Automatically generates 300x300 thumbnails
+- **Two-phase generation** for optimal UX:
+  1. Instant tiny previews (64×64) appear immediately
+  2. Full-quality thumbnails (300×300) load progressively
+- **Real-time progress**: Slim progress bar in header with current file name
+- **Individual loaders**: Spinner on each thumbnail during generation
 - Uses Sharp for high-quality, fast image processing
 - Thumbnails are cached and only regenerated if missing
 - JPEG format with 80% quality for optimal file size
+- **Adaptive performance**: Batch size scales with gallery size
+
+### Favorites System
+- **Heart/favorite images**: Click heart icon on any image
+- **Persistent storage**: Favorites saved in browser localStorage
+- **Filter view**: Toggle to show only favorited images
+- **Multiple interfaces**:
+  - Gallery view: Heart button appears on hover (top-right)
+  - Modal view: Heart button in zoom controls
+  - Header: Filter button to show only favorites
+- **Visual feedback**: Red filled heart when favorited, outline when not
 
 ### Security Features
 - Path traversal protection prevents access to files outside scan directory
@@ -330,10 +370,27 @@ PORT=8080 node server.js /path/to/images
 - Minimal memory footprint
 
 ### Mobile Support
-- Responsive grid layout
+- Responsive column layout (2-5 columns based on screen size)
 - Touch-friendly image previews
 - Optimized for various screen sizes
+- Progressive loading with tiny previews for faster initial display
 - Efficient loading on mobile networks
+
+### User Interface Controls
+- **Header Buttons**:
+  - Fullscreen: Toggle fullscreen mode
+  - Theme: Switch between dark and light themes
+  - Rescan: Force directory rescan
+  - Favorites Filter: Show only hearted images (highlights red when active)
+- **Modal Controls** (Image Viewer):
+  - Heart: Favorite/unfavorite current image
+  - Zoom In/Out: Control image zoom level
+  - Reset: Return to 100% zoom
+  - Close: Exit modal (or press ESC)
+- **Gallery View**:
+  - Heart icon on hover: Favorite images directly from gallery
+  - Click image: Open in full-screen modal
+  - Organized by folder sections with titles
 
 ## Troubleshooting
 
