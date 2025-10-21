@@ -603,11 +603,39 @@ async function getCachedGalleryData() {
     return result;
 }
 
+// Global thumbnail generation state
+let thumbnailGenerationState = {
+    isGenerating: false,
+    total: 0,
+    completed: 0,
+    currentFile: '',
+    progress: 0
+};
+
+// Broadcast global thumbnail progress
+function broadcastGlobalProgress() {
+    broadcastToClients({
+        type: 'global_thumbnail_progress',
+        ...thumbnailGenerationState
+    });
+}
+
 // Generate thumbnails in background with progress updates
 async function generateThumbnailsInBackground(pendingImages) {
     const batchSize = 3; // Process 3 thumbnails concurrently
     let processedCount = 0;
     let errorCount = 0;
+    
+    // Initialize global progress state
+    thumbnailGenerationState = {
+        isGenerating: true,
+        total: pendingImages.length,
+        completed: 0,
+        currentFile: '',
+        progress: 0
+    };
+    
+    broadcastGlobalProgress();
     
     console.log(`🔄 Processing ${pendingImages.length} thumbnails in batches of ${batchSize}...`);
     
@@ -621,12 +649,28 @@ async function generateThumbnailsInBackground(pendingImages) {
         // Process batch concurrently with individual error handling
         const promises = batch.map(async (image, index) => {
             try {
+                // Update current file being processed
+                thumbnailGenerationState.currentFile = image.name;
+                broadcastGlobalProgress();
+                
                 await generateThumbnailWithProgress(image);
                 processedCount++;
+                
+                // Update global progress
+                thumbnailGenerationState.completed = processedCount + errorCount;
+                thumbnailGenerationState.progress = Math.round((thumbnailGenerationState.completed / thumbnailGenerationState.total) * 100);
+                broadcastGlobalProgress();
+                
                 console.log(`✓ [${processedCount}/${pendingImages.length}] ${image.name}`);
                 return { success: true, image };
             } catch (error) {
                 errorCount++;
+                
+                // Update global progress
+                thumbnailGenerationState.completed = processedCount + errorCount;
+                thumbnailGenerationState.progress = Math.round((thumbnailGenerationState.completed / thumbnailGenerationState.total) * 100);
+                broadcastGlobalProgress();
+                
                 console.warn(`✗ [${processedCount + errorCount}/${pendingImages.length}] Failed: ${image.name} - ${error.message}`);
                 
                 // Broadcast error state
@@ -655,6 +699,17 @@ async function generateThumbnailsInBackground(pendingImages) {
     }
     
     const totalProcessed = processedCount + errorCount;
+    
+    // Mark global progress as complete
+    thumbnailGenerationState = {
+        isGenerating: false,
+        total: pendingImages.length,
+        completed: totalProcessed,
+        currentFile: '',
+        progress: 100
+    };
+    broadcastGlobalProgress();
+    
     console.log(`✅ Background thumbnail generation completed`);
     console.log(`📊 Final stats: ${processedCount} success, ${errorCount} errors, ${totalProcessed}/${pendingImages.length} processed`);
     

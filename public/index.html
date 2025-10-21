@@ -85,11 +85,16 @@
             background: none;
             border: 1px solid var(--border-color);
             color: var(--text-secondary);
-            padding: 0.25rem 0.5rem;
+            padding: 0.5rem;
             border-radius: 4px;
-            font-size: 0.75rem;
+            font-size: 1rem;
             cursor: pointer;
             transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 36px;
+            height: 36px;
         }
 
         .theme-btn:hover {
@@ -104,25 +109,85 @@
         }
 
         .rescan-btn {
-            background: #3498db;
-            color: white;
-            border: none;
-            padding: 0.5rem 1rem;
+            background: none;
+            color: var(--text-secondary);
+            border: 1px solid var(--border-color);
+            padding: 0.5rem;
             border-radius: 4px;
-            font-size: 0.8rem;
+            font-size: 1rem;
             cursor: pointer;
             transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 36px;
+            height: 36px;
         }
 
         .rescan-btn:hover {
-            background: #2980b9;
+            background: var(--bg-secondary);
+            color: var(--text-primary);
             transform: translateY(-1px);
         }
 
         .rescan-btn:disabled {
-            background: var(--text-secondary);
+            background: var(--bg-secondary);
+            color: var(--text-secondary);
             cursor: not-allowed;
             transform: none;
+            opacity: 0.5;
+        }
+        
+        .global-progress {
+            margin-top: 0.75rem;
+            padding: 0.75rem;
+            background: var(--bg-secondary);
+            border-radius: 6px;
+            border: 1px solid var(--border-color);
+        }
+        
+        .progress-info {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 0.5rem;
+            font-size: 0.8rem;
+        }
+        
+        .progress-text {
+            color: var(--text-primary);
+            font-weight: 500;
+        }
+        
+        .progress-stats {
+            color: var(--text-secondary);
+            font-size: 0.75rem;
+        }
+        
+        .progress-bar-container {
+            width: 100%;
+            height: 4px;
+            background: var(--border-color);
+            border-radius: 2px;
+            overflow: hidden;
+            margin-bottom: 0.5rem;
+        }
+        
+        .progress-bar-fill {
+            height: 100%;
+            width: 0%;
+            background: linear-gradient(90deg, #3498db, #2ecc71);
+            border-radius: 2px;
+            transition: width 0.3s ease;
+        }
+        
+        .current-file {
+            font-size: 0.7rem;
+            color: var(--text-secondary);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 100%;
         }
 
         .cache-status {
@@ -621,12 +686,24 @@
             <div class="info" id="gallery-info">Loading gallery...</div>
             <div class="breadcrumb" id="breadcrumb"></div>
             <div class="cache-status" id="cache-status"></div>
+            
+            <!-- Global thumbnail progress -->
+            <div class="global-progress" id="global-progress" style="display: none;">
+                <div class="progress-info">
+                    <span class="progress-text">Generating thumbnails...</span>
+                    <span class="progress-stats" id="progress-stats">0/0</span>
+                </div>
+                <div class="progress-bar-container">
+                    <div class="progress-bar-fill" id="global-progress-bar"></div>
+                </div>
+                <div class="current-file" id="current-file"></div>
+            </div>
         </div>
         <div class="theme-controls">
-            <button class="rescan-btn" id="rescan-btn">🔄 Rescan</button>
-            <button class="theme-btn" id="theme-light" data-theme="light">Light</button>
-            <button class="theme-btn" id="theme-dark" data-theme="dark">Dark</button>
-            <button class="theme-btn active" id="theme-system" data-theme="system">System</button>
+            <button class="rescan-btn" id="rescan-btn" title="Rescan gallery">🔄</button>
+            <button class="theme-btn" id="theme-light" data-theme="light" title="Light mode">☀️</button>
+            <button class="theme-btn" id="theme-dark" data-theme="dark" title="Dark mode">🌙</button>
+            <button class="theme-btn active" id="theme-system" data-theme="system" title="System mode">🔄</button>
         </div>
     </div>
 
@@ -699,10 +776,16 @@
                 this.themeButtons = document.querySelectorAll('.theme-btn');
                 this.currentTheme = this.getStoredTheme();
                 
-                // Cache and rescan elements
+                // Cache and header elements
                 this.rescanBtn = document.getElementById('rescan-btn');
                 this.cacheStatus = document.getElementById('cache-status');
                 this.breadcrumb = document.getElementById('breadcrumb');
+                
+                // Global progress elements
+                this.globalProgress = document.getElementById('global-progress');
+                this.globalProgressBar = document.getElementById('global-progress-bar');
+                this.progressStats = document.getElementById('progress-stats');
+                this.currentFile = document.getElementById('current-file');
                 
                 // Pan and zoom state
                 this.scale = 1;
@@ -859,6 +942,9 @@
                     } else if (data.type === 'thumbnail_progress') {
                         // Handle individual thumbnail progress
                         this.updateThumbnailProgress(data.media, data.status, data.progress);
+                    } else if (data.type === 'global_thumbnail_progress') {
+                        // Handle global thumbnail progress
+                        this.updateGlobalProgress(data);
                     } else {
                         // Handle scanning progress
                         this.updateProgress(data);
@@ -1235,7 +1321,28 @@
                     }
                 }
             }
-
+            
+            // Update global thumbnail progress
+            updateGlobalProgress(data) {
+                if (data.isGenerating) {
+                    this.globalProgress.style.display = 'block';
+                    this.globalProgressBar.style.width = `${data.progress}%`;
+                    this.progressStats.textContent = `${data.completed}/${data.total}`;
+                    
+                    if (data.currentFile) {
+                        this.currentFile.textContent = `Processing: ${data.currentFile}`;
+                    }
+                } else {
+                    // Hide progress bar after completion with a delay
+                    setTimeout(() => {
+                        this.globalProgress.style.display = 'none';
+                    }, 2000);
+                    
+                    this.progressStats.textContent = `${data.completed}/${data.total} complete`;
+                    this.currentFile.textContent = 'Thumbnail generation complete!';
+                }
+            }
+            
             // Cache and Rescan Management
             async rescanGallery() {
                 this.rescanBtn.disabled = true;
