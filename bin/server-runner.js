@@ -845,17 +845,32 @@ async function generateIndexHTML() {
         .info { font-size: 0.9rem; color: var(--text-secondary); margin-top: 0.25rem; }
         .header-actions { display: flex; gap: 0.5rem; align-items: center; }
         .header-btn {
-            padding: 0.4rem 0.75rem;
+            width: 36px;
+            height: 36px;
             border: 1px solid rgba(0,0,0,0.1);
             background: var(--bg-secondary);
             color: var(--text-primary);
             border-radius: 6px;
             cursor: pointer;
-            font-size: 0.85rem;
+            font-size: 1.1rem;
             transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0;
         }
-        .header-btn:hover { background: #e9ecef; transform: translateY(-1px); }
-        .gallery { column-count: 5; column-gap: 15px; padding: 0 2rem 2rem; }
+        .header-btn:hover { background: #e9ecef; }
+        .gallery-sections { padding: 0 2rem 2rem; }
+        .gallery-section { margin-bottom: 2rem; }
+        .section-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            padding-bottom: 0.5rem;
+            border-bottom: 2px solid var(--text-primary);
+            margin-bottom: 1rem;
+        }
+        .gallery { column-count: 5; column-gap: 15px; }
         .gallery-item {
             break-inside: avoid;
             margin-bottom: 15px;
@@ -941,11 +956,25 @@ async function generateIndexHTML() {
             </div>
         </div>
         <div class="header-actions">
-            <button class="header-btn" id="rescanBtn" onclick="rescanGallery()">🔄 Rescan</button>
-            <button class="header-btn" id="themeBtn" onclick="toggleTheme()">🌙 Theme</button>
+            <button class="header-btn" id="fullscreenBtn" onclick="toggleFullscreen()" title="Fullscreen">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"></path>
+                </svg>
+            </button>
+            <button class="header-btn" id="themeBtn" onclick="toggleTheme()" title="Toggle Theme">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+                </svg>
+            </button>
+            <button class="header-btn" id="rescanBtn" onclick="rescanGallery()" title="Rescan Gallery">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="23 4 23 10 17 10"></polyline>
+                    <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path>
+                </svg>
+            </button>
         </div>
     </div>
-    <div class="gallery" id="gallery"></div>
+    <div class="gallery-sections" id="gallerySections"></div>
     <div class="modal" id="imageModal">
         <div class="close" id="closeModal">✕</div>
         <div class="zoom-info" id="zoomInfo">100%</div>
@@ -969,47 +998,81 @@ async function generateIndexHTML() {
             const response = await fetch('/api/gallery');
             const data = await response.json();
             document.getElementById('gallery-info').textContent = 'Found ' + data.totalImages + ' media files';
-            document.getElementById('gallery-path').textContent = window.location.hostname + ':' + window.location.port;
-            Object.values(data.galleries).flat().forEach(media => {
-                const item = document.createElement('div');
-                item.className = 'gallery-item';
-                const img = document.createElement('img');
-                img.src = media.thumbnail;
-                img.alt = media.name;
-                img.loading = 'lazy';
-                item.appendChild(img);
-                item.onclick = () => openModal(media);
-                document.getElementById('gallery').appendChild(item);
+            document.getElementById('gallery-path').textContent = data.scanDirectory;
+            
+            const sectionsContainer = document.getElementById('gallerySections');
+            
+            // Sort directories for consistent display
+            const sortedDirs = Object.keys(data.galleries).sort();
+            
+            sortedDirs.forEach(dir => {
+                const media = data.galleries[dir];
+                
+                // Create section
+                const section = document.createElement('div');
+                section.className = 'gallery-section';
+                
+                // Create section title
+                const title = document.createElement('div');
+                title.className = 'section-title';
+                title.textContent = dir === '.' ? 'Root' : dir;
+                section.appendChild(title);
+                
+                // Create gallery grid for this section
+                const gallery = document.createElement('div');
+                gallery.className = 'gallery';
+                
+                media.forEach(item => {
+                    const galleryItem = document.createElement('div');
+                    galleryItem.className = 'gallery-item';
+                    const img = document.createElement('img');
+                    img.src = item.thumbnail || '/placeholder.jpg';
+                    img.alt = item.name;
+                    img.loading = 'lazy';
+                    galleryItem.appendChild(img);
+                    galleryItem.onclick = () => openModal(item);
+                    gallery.appendChild(galleryItem);
+                });
+                
+                section.appendChild(gallery);
+                sectionsContainer.appendChild(section);
             });
         }
         
         async function rescanGallery() {
-            document.getElementById('rescanBtn').textContent = '⏳ Scanning...';
+            const btn = document.getElementById('rescanBtn');
+            btn.style.opacity = '0.5';
+            btn.style.pointerEvents = 'none';
             try {
                 await fetch('/api/rescan', { method: 'POST' });
                 window.location.reload();
             } catch (e) {
-                document.getElementById('rescanBtn').textContent = '❌ Error';
-                setTimeout(() => { document.getElementById('rescanBtn').textContent = '🔄 Rescan'; }, 2000);
+                btn.style.opacity = '1';
+                btn.style.pointerEvents = 'auto';
+            }
+        }
+        
+        function toggleFullscreen() {
+            if (!document.fullscreenElement) {
+                document.documentElement.requestFullscreen();
+            } else {
+                document.exitFullscreen();
             }
         }
         
         function toggleTheme() {
             const root = document.documentElement;
-            const btn = document.getElementById('themeBtn');
             const current = root.style.getPropertyValue('--bg-primary') || '#ffffff';
             if (current === '#ffffff') {
                 root.style.setProperty('--bg-primary', '#1a1a1a');
                 root.style.setProperty('--bg-secondary', '#2d2d2d');
                 root.style.setProperty('--text-primary', '#e0e0e0');
                 root.style.setProperty('--text-secondary', '#a0a0a0');
-                btn.textContent = '☀️ Theme';
             } else {
                 root.style.setProperty('--bg-primary', '#ffffff');
                 root.style.setProperty('--bg-secondary', '#f8f9fa');
                 root.style.setProperty('--text-primary', '#2c3e50');
                 root.style.setProperty('--text-secondary', '#7f8c8d');
-                btn.textContent = '🌙 Theme';
             }
         }
         
