@@ -8,27 +8,28 @@
         :root {
             --bg-primary: #ffffff;
             --bg-secondary: #f8f9fa;
-            --bg-tertiary: #ffffff;
             --text-primary: #2c3e50;
             --text-secondary: #7f8c8d;
             --border-color: rgba(0,0,0,0.1);
             --shadow: 0 2px 10px rgba(0,0,0,0.1);
             --shadow-hover: 0 8px 25px rgba(0,0,0,0.15);
-            --modal-bg: rgba(0,0,0,0.9);
-            --button-bg: rgba(0,0,0,0.7);
+            --modal-bg: rgba(0,0,0,0.95);
+            --button-bg: rgba(255,255,255,0.15);
+            --button-bg-hover: rgba(255,255,255,0.25);
+            --button-text: #ffffff;
         }
 
         [data-theme="dark"] {
             --bg-primary: #1a1a1a;
             --bg-secondary: #2d2d2d;
-            --bg-tertiary: #333333;
             --text-primary: #ffffff;
             --text-secondary: #b0b0b0;
             --border-color: rgba(255,255,255,0.1);
             --shadow: 0 2px 10px rgba(0,0,0,0.3);
             --shadow-hover: 0 8px 25px rgba(0,0,0,0.4);
-            --modal-bg: rgba(0,0,0,0.95);
+            --modal-bg: rgba(0,0,0,0.98);
             --button-bg: rgba(255,255,255,0.1);
+            --button-bg-hover: rgba(255,255,255,0.2);
         }
 
         * {
@@ -57,475 +58,51 @@
             z-index: 100;
         }
 
-        .header-content {
-            display: flex;
-            align-items: center;
-            gap: 1rem;
-        }
-
         .header h1 {
-            color: var(--text-primary);
-            font-size: 1.25rem;
-            font-weight: 600;
+            font-size: 1.5rem;
             margin: 0;
         }
 
-        .header .info {
-            color: var(--text-secondary);
-            font-size: 0.8rem;
-        }
-
-        .theme-controls {
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-        }
-
-        .theme-btn {
-            background: none;
-            border: 1px solid var(--border-color);
-            color: var(--text-secondary);
-            padding: 0.5rem;
-            border-radius: 4px;
-            font-size: 1rem;
-            cursor: pointer;
-            transition: all 0.2s ease;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            width: 36px;
-            height: 36px;
-        }
-
-        .theme-btn:hover {
-            background: var(--bg-secondary);
-            color: var(--text-primary);
-        }
-
-        .theme-btn.active {
-            background: var(--text-primary);
-            color: var(--bg-primary);
-            border-color: var(--text-primary);
-        }
-
-        .rescan-btn {
-            background: none;
-            color: var(--text-secondary);
-            border: 1px solid var(--border-color);
-            padding: 0.5rem;
-            border-radius: 4px;
-            font-size: 1rem;
-            cursor: pointer;
-            transition: all 0.2s ease;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            width: 36px;
-            height: 36px;
-        }
-
-        .rescan-btn:hover {
-            background: var(--bg-secondary);
-            color: var(--text-primary);
-            transform: translateY(-1px);
-        }
-
-        .rescan-btn:disabled {
-            background: var(--bg-secondary);
-            color: var(--text-secondary);
-            cursor: not-allowed;
-            transform: none;
-            opacity: 0.5;
-        }
-        
-        .global-progress {
-            margin-top: 0.75rem;
-            padding: 0.75rem;
-            background: var(--bg-secondary);
-            border-radius: 6px;
-            border: 1px solid var(--border-color);
-        }
-        
-        .progress-info {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 0.5rem;
-            font-size: 0.8rem;
-        }
-        
-        .progress-text {
-            color: var(--text-primary);
-            font-weight: 500;
-        }
-        
-        .progress-stats {
-            color: var(--text-secondary);
-            font-size: 0.75rem;
-        }
-        
-        .progress-bar-container {
-            width: 100%;
-            height: 4px;
-            background: var(--border-color);
-            border-radius: 2px;
-            overflow: hidden;
-            margin-bottom: 0.5rem;
-        }
-        
-        .progress-bar-fill {
-            height: 100%;
-            width: 0%;
-            background: linear-gradient(90deg, #3498db, #2ecc71);
-            border-radius: 2px;
-            transition: width 0.3s ease;
-        }
-        
-        .current-file {
-            font-size: 0.7rem;
-            color: var(--text-secondary);
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            max-width: 100%;
-        }
-
-        .cache-status {
-            font-size: 0.7rem;
+        .info {
+            font-size: 0.9rem;
             color: var(--text-secondary);
             margin-top: 0.25rem;
         }
 
-        .breadcrumb {
-            font-size: 0.8rem;
-            color: var(--text-secondary);
-            margin-top: 0.25rem;
-            display: flex;
-            align-items: center;
-            flex-wrap: wrap;
-            gap: 0.25rem;
+        /* Gallery Grid */
+        .gallery {
+            column-count: 5;
+            column-gap: 15px;
+            padding: 0 2rem 2rem;
         }
 
-        .breadcrumb-item {
-            display: flex;
-            align-items: center;
-            gap: 0.25rem;
-        }
-
-        .breadcrumb-separator {
-            color: var(--text-secondary);
-            opacity: 0.6;
-        }
-
-        .breadcrumb-link {
-            color: var(--text-secondary);
-            text-decoration: none;
-            transition: color 0.2s ease;
-        }
-
-        .breadcrumb-link:hover {
-            color: var(--text-primary);
-        }
-
-        .breadcrumb-current {
-            color: var(--text-primary);
-            font-weight: 500;
-        }
-
-        .icon {
-            width: 20px;
-            height: 20px;
-            fill: none;
-            stroke: currentColor;
-            stroke-width: 2;
-            stroke-linecap: round;
-            stroke-linejoin: round;
-            vertical-align: middle;
-        }
-        
-        .icon-filled {
-            fill: currentColor;
-            stroke: none;
-        }
-        
-        .icon-small {
-            width: 16px;
-            height: 16px;
-        }
-        
-        .camera-icon {
-            margin-right: 8px;
-        }
-
-        .loading {
-            text-align: center;
-            padding: 3rem;
-            color: var(--text-secondary);
-        }
-
-        .progress-container {
-            text-align: center;
-            padding: 2rem;
-            background: var(--bg-primary);
-            margin: 2rem;
-            border-radius: 8px;
-            box-shadow: var(--shadow);
-        }
-
-        .progress-bar {
-            width: 100%;
-            height: 20px;
-            background: var(--bg-secondary);
-            border-radius: 10px;
-            overflow: hidden;
-            margin: 1rem 0;
-        }
-
-        .progress-fill {
-            height: 100%;
-            background: linear-gradient(90deg, #3498db, #2980b9);
-            border-radius: 10px;
-            transition: width 0.3s ease;
-            width: 0%;
-        }
-
-        .progress-stats {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-            gap: 1rem;
-            margin-top: 1rem;
-        }
-
-        .progress-stat {
-            background: var(--bg-secondary);
-            padding: 0.5rem;
-            border-radius: 4px;
-        }
-
-        .progress-stat-label {
-            font-size: 0.8rem;
-            color: var(--text-secondary);
-            margin-bottom: 0.2rem;
-        }
-
-        .progress-stat-value {
-            font-size: 1.2rem;
-            font-weight: 600;
-            color: var(--text-primary);
-        }
-
-        .scanning-animation {
-            display: inline-block;
-            animation: pulse 2s infinite;
-        }
-
-        @keyframes pulse {
-            0% { opacity: 1; }
-            50% { opacity: 0.5; }
-            100% { opacity: 1; }
-        }
-
-        .gallery-section {
-            margin-bottom: 3rem;
-            padding: 0 2rem;
-        }
-
-        .directory-title {
-            font-size: 1.25rem;
-            color: var(--text-primary);
-            margin-bottom: 1rem;
-            padding: 1rem;
-            border-bottom: 2px solid #3498db;
-            background: var(--bg-primary);
-            border-radius: 5px 5px 0 0;
-            box-shadow: var(--shadow);
-        }
-
-        .image-grid {
-            column-count: 4;
-            column-gap: 1.5rem;
-            padding: 1.5rem;
-            background: var(--bg-primary);
-            border-radius: 0 0 5px 5px;
-            box-shadow: var(--shadow);
-        }
-
-        .image-card {
-            display: inline-block;
-            width: 100%;
-            margin-bottom: 1.5rem;
-            background: var(--bg-primary);
-            border-radius: 8px;
-            overflow: hidden;
-            box-shadow: var(--shadow);
-            transition: transform 0.2s ease, box-shadow 0.2s ease;
-            cursor: pointer;
+        .gallery-item {
             break-inside: avoid;
-        }
-
-        .image-card:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
-        }
-        
-        .image-card.pending-thumbnail {
-            opacity: 0.7;
-        }
-        
-        .image-card.pending-thumbnail .image-thumbnail {
-            filter: grayscale(0.5) brightness(1.1);
-        }
-        
-        @keyframes thumbnailLoad {
-            0% {
-                opacity: 0.7;
-                transform: scale(0.98);
-            }
-            100% {
-                opacity: 1;
-                transform: scale(1);
-            }
-        }
-        
-        .thumbnail-progress {
-            position: absolute;
-            bottom: 0;
-            left: 0;
-            right: 0;
-            background: rgba(0, 0, 0, 0.8);
-            color: white;
-            padding: 8px;
-            font-size: 11px;
-            border-radius: 0 0 8px 8px;
-            backdrop-filter: blur(4px);
-        }
-        
-        .progress-bar {
-            width: 100%;
-            height: 3px;
-            background: rgba(255, 255, 255, 0.3);
-            border-radius: 2px;
-            margin-bottom: 4px;
+            margin-bottom: 15px;
+            cursor: pointer;
+            transition: transform 0.2s;
             overflow: hidden;
-        }
-        
-        .progress-fill {
-            height: 100%;
-            width: 0%;
-            background: #4CAF50;
-            border-radius: 2px;
-            transition: width 0.3s ease;
-        }
-        
-        .progress-text {
-            text-align: center;
-            font-weight: 500;
-            text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
-        }
-        
-        .thumbnail-progress.starting .progress-fill {
-            background: #2196F3;
-        }
-        
-        .thumbnail-progress.processing .progress-fill {
-            background: #FF9800;
-            animation: progressPulse 1s ease-in-out infinite alternate;
-        }
-        
-        .thumbnail-progress.complete .progress-fill {
-            background: #4CAF50;
-        }
-        
-        .thumbnail-progress.error .progress-fill {
-            background: #F44336;
-        }
-        
-        @keyframes progressPulse {
-            0% {
-                opacity: 0.8;
-            }
-            100% {
-                opacity: 1;
-            }
-        }
-        
-        .media-container {
-            position: relative;
-        }
-        
-        .image-card.tiny-preview-loaded .image-thumbnail {
-            filter: blur(1px) brightness(1.1);
-            transition: filter 0.3s ease;
-        }
-        
-        .image-card.thumbnail-loaded .image-thumbnail {
-            filter: none;
-        }
-        
-        @keyframes tinyPreviewLoad {
-            0% {
-                opacity: 0.5;
-                filter: blur(2px);
-            }
-            100% {
-                opacity: 1;
-                filter: blur(1px);
-            }
-        }
-        
-        .image-card.tiny-preview-loaded {
-            animation: tinyPreviewLoad 0.5s ease-out;
+            border-radius: 8px;
+            background: var(--bg-primary);
+            box-shadow: var(--shadow);
         }
 
-        .image-thumbnail {
+        .gallery-item:hover {
+            transform: translateY(-5px);
+            box-shadow: var(--shadow-hover);
+        }
+
+        .gallery-item img {
             width: 100%;
             height: auto;
             display: block;
-            border-radius: 8px 8px 0 0;
         }
 
-        .video-overlay {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            background: rgba(0,0,0,0.7);
-            border-radius: 50%;
-            width: 60px;
-            height: 60px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: white;
-            font-size: 24px;
-            pointer-events: none;
-        }
-
-        .media-container {
-            position: relative;
-            overflow: hidden;
-        }
-
-        .image-info {
-            padding: 1rem;
-        }
-
-        .image-name {
-            font-weight: 600;
-            color: var(--text-primary);
-            margin-bottom: 0.5rem;
-            word-break: break-word;
-        }
-
-        .image-details {
-            font-size: 0.8rem;
-            color: var(--text-secondary);
-        }
-
+        /* Modal Styles */
         .modal {
             display: none;
             position: fixed;
-            z-index: 1000;
+            z-index: 2000;
             left: 0;
             top: 0;
             width: 100%;
@@ -533,6 +110,10 @@
             background-color: var(--modal-bg);
             justify-content: center;
             align-items: center;
+        }
+
+        .modal.active {
+            display: flex;
         }
 
         .modal-content {
@@ -545,7 +126,7 @@
             max-width: 100%;
             max-height: 100%;
             object-fit: contain;
-            border-radius: 5px;
+            border-radius: 8px;
             cursor: grab;
             transition: transform 0.1s ease;
         }
@@ -557,237 +138,152 @@
         .modal-video {
             max-width: 100%;
             max-height: 100%;
-            border-radius: 5px;
+            border-radius: 8px;
         }
 
+        /* IMPROVED: Round, Visible Close Button */
+        .close {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            width: 56px;
+            height: 56px;
+            border-radius: 50%;
+            background: var(--button-bg);
+            backdrop-filter: blur(10px);
+            border: 2px solid rgba(255,255,255,0.3);
+            color: var(--button-text);
+            font-size: 28px;
+            font-weight: 300;
+            cursor: pointer;
+            z-index: 2001;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s ease;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+        }
+
+        .close:hover {
+            background: var(--button-bg-hover);
+            transform: scale(1.1) rotate(90deg);
+            box-shadow: 0 6px 20px rgba(0,0,0,0.6);
+        }
+
+        /* IMPROVED: Round Zoom Controls */
         .zoom-controls {
-            position: absolute;
-            bottom: 20px;
+            position: fixed;
+            bottom: 30px;
             left: 50%;
             transform: translateX(-50%);
+            display: none;
+            gap: 12px;
+            z-index: 2001;
+        }
+
+        .zoom-controls.active {
             display: flex;
-            gap: 10px;
-            z-index: 1001;
         }
 
         .zoom-btn {
-            background: var(--button-bg);
-            color: var(--text-primary);
-            border: 1px solid var(--border-color);
+            width: 48px;
+            height: 48px;
             border-radius: 50%;
-            width: 40px;
-            height: 40px;
-            font-size: 18px;
+            background: var(--button-bg);
+            backdrop-filter: blur(10px);
+            border: 2px solid rgba(255,255,255,0.3);
+            color: var(--button-text);
+            font-size: 22px;
             cursor: pointer;
             display: flex;
             align-items: center;
             justify-content: center;
             transition: all 0.2s ease;
-            backdrop-filter: blur(10px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.4);
         }
 
         .zoom-btn:hover {
-            background: var(--bg-primary);
-            transform: scale(1.1);
+            background: var(--button-bg-hover);
+            transform: scale(1.15);
+            box-shadow: 0 6px 20px rgba(0,0,0,0.6);
         }
 
+        .zoom-btn:active {
+            transform: scale(0.95);
+        }
+
+        /* IMPROVED: Round Zoom Info Badge */
         .zoom-info {
-            position: absolute;
-            top: 20px;
-            left: 20px;
+            position: fixed;
+            top: 30px;
+            left: 30px;
             background: var(--button-bg);
-            color: var(--text-primary);
-            padding: 8px 12px;
-            border-radius: 4px;
-            font-size: 14px;
-            z-index: 1001;
             backdrop-filter: blur(10px);
-            border: 1px solid var(--border-color);
+            border: 2px solid rgba(255,255,255,0.3);
+            color: var(--button-text);
+            padding: 10px 20px;
+            border-radius: 24px;
+            font-size: 14px;
+            font-weight: 600;
+            z-index: 2001;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+            display: none;
         }
 
-        .close {
-            position: absolute;
-            top: 15px;
-            right: 35px;
-            color: #f1f1f1;
-            font-size: 40px;
-            font-weight: bold;
-            cursor: pointer;
+        .zoom-info.active {
+            display: block;
         }
 
-        .close:hover {
-            color: #bbb;
-        }
-
-        .error {
-            text-align: center;
-            padding: 2rem;
-            color: #e74c3c;
-            background: var(--bg-primary);
-            margin: 2rem;
-            border-radius: 5px;
-            border: 1px solid #e74c3c;
-        }
-
+        /* Responsive */
         @media (max-width: 1200px) {
-            .image-grid {
-                column-count: 3;
-            }
+            .gallery { column-count: 4; }
         }
 
-        @media (max-width: 768px) {
-            .header {
-                padding: 0.5rem 1rem;
-                flex-direction: column;
-                gap: 0.5rem;
-            }
-            
-            .header-content {
-                flex-direction: column;
-                gap: 0.25rem;
-                text-align: center;
-            }
-            
-            .gallery-section {
-                padding: 0 1rem;
-            }
-            
-            .image-grid {
-                column-count: 2;
-                column-gap: 1rem;
-                padding: 1rem;
-            }
+        @media (max-width: 900px) {
+            .gallery { column-count: 3; }
         }
 
-        @media (max-width: 480px) {
-            .image-grid {
-                column-count: 1;
+        @media (max-width: 600px) {
+            .gallery { column-count: 2; }
+            
+            .close {
+                width: 48px;
+                height: 48px;
+                font-size: 24px;
             }
             
-            .theme-controls {
-                flex-wrap: wrap;
-                justify-content: center;
+            .zoom-btn {
+                width: 42px;
+                height: 42px;
+                font-size: 18px;
             }
         }
     </style>
 </head>
 <body>
-    <!-- Hidden SVG icons for reuse -->
-    <svg style="display: none;" xmlns="http://www.w3.org/2000/svg">
-        <defs>
-            <!-- Camera Icon -->
-            <symbol id="icon-camera" viewBox="0 0 24 24">
-                <path d="M9 3h6l2 2h4a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h4l2-2z"/>
-                <circle cx="12" cy="13" r="4"/>
-            </symbol>
-            
-            <!-- Refresh/Rescan Icon -->
-            <symbol id="icon-refresh" viewBox="0 0 24 24">
-                <path d="M1 4v6h6M23 20v-6h-6M20.49 9A9 9 0 0 0 5.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 0 1 3.51 15"/>
-            </symbol>
-            
-            <!-- Sun/Light Mode Icon -->
-            <symbol id="icon-sun" viewBox="0 0 24 24">
-                <circle cx="12" cy="12" r="5"/>
-                <line x1="12" y1="1" x2="12" y2="3"/>
-                <line x1="12" y1="21" x2="12" y2="23"/>
-                <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/>
-                <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
-                <line x1="1" y1="12" x2="3" y2="12"/>
-                <line x1="21" y1="12" x2="23" y2="12"/>
-                <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/>
-                <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
-            </symbol>
-            
-            <!-- Moon/Dark Mode Icon -->
-            <symbol id="icon-moon" viewBox="0 0 24 24">
-                <path d="M21 12.79A9 9 0 1 1 11.21 3A7 7 0 0 0 21 12.79z"/>
-            </symbol>
-            
-            <!-- System/Auto Mode Icon -->
-            <symbol id="icon-monitor" viewBox="0 0 24 24">
-                <rect x="2" y="3" width="20" height="14" rx="2" ry="2"/>
-                <line x1="8" y1="21" x2="16" y2="21"/>
-                <line x1="12" y1="17" x2="12" y2="21"/>
-            </symbol>
-        </defs>
-    </svg>
     <div class="header">
-        <div class="header-content">
-            <h1><svg class="icon camera-icon"><use href="#icon-camera"/></svg>Gallery</h1>
-            <div class="info" id="gallery-info">Loading gallery...</div>
-            <div class="breadcrumb" id="breadcrumb"></div>
-            <div class="cache-status" id="cache-status"></div>
-            
-            <!-- Global thumbnail progress -->
-            <div class="global-progress" id="global-progress" style="display: none;">
-                <div class="progress-info">
-                    <span class="progress-text">Generating thumbnails...</span>
-                    <span class="progress-stats" id="progress-stats">0/0</span>
-                </div>
-                <div class="progress-bar-container">
-                    <div class="progress-bar-fill" id="global-progress-bar"></div>
-                </div>
-                <div class="current-file" id="current-file"></div>
-            </div>
-        </div>
-        <div class="theme-controls">
-            <button class="rescan-btn" id="rescan-btn" title="Rescan gallery">
-                <svg class="icon"><use href="#icon-refresh"/></svg>
-            </button>
-            <button class="theme-btn" id="theme-light" data-theme="light" title="Light mode">
-                <svg class="icon"><use href="#icon-sun"/></svg>
-            </button>
-            <button class="theme-btn" id="theme-dark" data-theme="dark" title="Dark mode">
-                <svg class="icon"><use href="#icon-moon"/></svg>
-            </button>
-            <button class="theme-btn active" id="theme-system" data-theme="system" title="System mode">
-                <svg class="icon"><use href="#icon-monitor"/></svg>
-            </button>
+        <div>
+            <h1>📷 Gallery</h1>
+            <div class="info" id="gallery-info">Loading...</div>
         </div>
     </div>
 
-    <div class="loading" id="loading" style="display: none;">
-        Scanning directories for images...
-    </div>
+    <div class="gallery" id="gallery"></div>
 
-    <div class="progress-container" id="progress-container">
-        <h2>🔍 <span class="scanning-animation">Scanning Media Files</span></h2>
-        <div class="progress-bar">
-            <div class="progress-fill" id="progress-fill"></div>
-        </div>
-        <div id="progress-text">Preparing to scan...</div>
-        <div class="progress-stats">
-            <div class="progress-stat">
-                <div class="progress-stat-label">Files Found</div>
-                <div class="progress-stat-value" id="files-found">0</div>
-            </div>
-            <div class="progress-stat">
-                <div class="progress-stat-label">Directories</div>
-                <div class="progress-stat-value" id="directories-scanned">0</div>
-            </div>
-            <div class="progress-stat">
-                <div class="progress-stat-label">Current Location</div>
-                <div class="progress-stat-value" id="current-directory">-</div>
-            </div>
-        </div>
-    </div>
-
-    <div id="gallery-container"></div>
-
-    <div id="imageModal" class="modal">
+    <!-- Modal -->
+    <div class="modal" id="imageModal">
+        <div class="close" id="closeModal">✕</div>
+        <div class="zoom-info" id="zoomInfo">100%</div>
+        
         <div class="modal-content">
-            <span class="close">&times;</span>
-            <div class="zoom-info" id="zoomInfo" style="display: none;">100%</div>
-            <img class="modal-image" id="modalImage" src="" alt="" style="display: none;">
-            <video class="modal-video" id="modalVideo" controls style="display: none;">
-                Your browser does not support the video tag.
-            </video>
-            <div class="zoom-controls" id="zoomControls" style="display: none;">
-                <button class="zoom-btn" id="zoomOut">−</button>
-                <button class="zoom-btn" id="resetZoom">⌂</button>
-                <button class="zoom-btn" id="zoomIn">+</button>
-            </div>
+            <img class="modal-image" id="modalImage" style="display: none;">
+            <video class="modal-video" id="modalVideo" controls style="display: none;"></video>
+        </div>
+        
+        <div class="zoom-controls" id="zoomControls">
+            <button class="zoom-btn" id="zoomOut">−</button>
+            <button class="zoom-btn" id="resetZoom">⌂</button>
+            <button class="zoom-btn" id="zoomIn">+</button>
         </div>
     </div>
 
@@ -797,35 +293,12 @@
                 this.modal = document.getElementById('imageModal');
                 this.modalImg = document.getElementById('modalImage');
                 this.modalVideo = document.getElementById('modalVideo');
-                this.closeBtn = document.querySelector('.close');
+                this.closeBtn = document.getElementById('closeModal');
                 this.zoomControls = document.getElementById('zoomControls');
                 this.zoomInfo = document.getElementById('zoomInfo');
                 this.zoomInBtn = document.getElementById('zoomIn');
                 this.zoomOutBtn = document.getElementById('zoomOut');
                 this.resetZoomBtn = document.getElementById('resetZoom');
-                
-                // Progress elements
-                this.progressContainer = document.getElementById('progress-container');
-                this.progressFill = document.getElementById('progress-fill');
-                this.progressText = document.getElementById('progress-text');
-                this.filesFound = document.getElementById('files-found');
-                this.directoriesScanned = document.getElementById('directories-scanned');
-                this.currentDirectory = document.getElementById('current-directory');
-                
-                // Theme elements
-                this.themeButtons = document.querySelectorAll('.theme-btn');
-                this.currentTheme = this.getStoredTheme();
-                
-                // Cache and header elements
-                this.rescanBtn = document.getElementById('rescan-btn');
-                this.cacheStatus = document.getElementById('cache-status');
-                this.breadcrumb = document.getElementById('breadcrumb');
-                
-                // Global progress elements
-                this.globalProgress = document.getElementById('global-progress');
-                this.globalProgressBar = document.getElementById('global-progress-bar');
-                this.progressStats = document.getElementById('progress-stats');
-                this.currentFile = document.getElementById('current-file');
                 
                 // Pan and zoom state
                 this.scale = 1;
@@ -835,43 +308,26 @@
                 this.lastX = 0;
                 this.lastY = 0;
                 
-                this.initTheme();
                 this.setupEventListeners();
-                this.setupProgressListener();
                 this.loadGallery();
             }
 
             setupEventListeners() {
-                // Close modal when clicking the close button
-                this.closeBtn.onclick = () => {
-                    this.closeModal();
-                };
-
-                // Close modal when clicking outside the content
+                // Close modal
+                this.closeBtn.onclick = () => this.closeModal();
+                
+                // Close on background click
                 this.modal.onclick = (event) => {
                     if (event.target === this.modal) {
                         this.closeModal();
                     }
                 };
-
-                // Close modal with escape key
+                
+                // Close with escape key
                 document.addEventListener('keydown', (event) => {
                     if (event.key === 'Escape') {
                         this.closeModal();
                     }
-                });
-
-                // Theme controls
-                this.themeButtons.forEach(btn => {
-                    btn.addEventListener('click', () => {
-                        const theme = btn.dataset.theme;
-                        this.setTheme(theme);
-                    });
-                });
-                
-                // Rescan button
-                this.rescanBtn.addEventListener('click', () => {
-                    this.rescanGallery();
                 });
 
                 // Zoom controls
@@ -883,7 +339,7 @@
                 this.modalImg.addEventListener('wheel', (e) => {
                     e.preventDefault();
                     const delta = e.deltaY > 0 ? -1 : 1;
-                    this.zoom(delta * 0.1, e.offsetX, e.offsetY);
+                    this.zoom(delta * 0.1);
                 });
 
                 // Pan functionality
@@ -913,266 +369,60 @@
                     this.isDragging = false;
                     this.modalImg.classList.remove('panning');
                 });
-
-                // Touch events for mobile
-                let lastTouchDistance = 0;
-                let lastTouchX = 0;
-                let lastTouchY = 0;
-
-                this.modalImg.addEventListener('touchstart', (e) => {
-                    if (e.touches.length === 1 && this.scale > 1) {
-                        // Single touch - pan
-                        this.isDragging = true;
-                        lastTouchX = e.touches[0].clientX;
-                        lastTouchY = e.touches[0].clientY;
-                    } else if (e.touches.length === 2) {
-                        // Two touches - zoom
-                        const touch1 = e.touches[0];
-                        const touch2 = e.touches[1];
-                        lastTouchDistance = Math.hypot(
-                            touch2.clientX - touch1.clientX,
-                            touch2.clientY - touch1.clientY
-                        );
-                    }
-                    e.preventDefault();
-                });
-
-                this.modalImg.addEventListener('touchmove', (e) => {
-                    if (e.touches.length === 1 && this.isDragging) {
-                        // Pan
-                        const deltaX = e.touches[0].clientX - lastTouchX;
-                        const deltaY = e.touches[0].clientY - lastTouchY;
-                        this.translateX += deltaX;
-                        this.translateY += deltaY;
-                        lastTouchX = e.touches[0].clientX;
-                        lastTouchY = e.touches[0].clientY;
-                        this.updateTransform();
-                    } else if (e.touches.length === 2) {
-                        // Zoom
-                        const touch1 = e.touches[0];
-                        const touch2 = e.touches[1];
-                        const currentDistance = Math.hypot(
-                            touch2.clientX - touch1.clientX,
-                            touch2.clientY - touch1.clientY
-                        );
-                        const deltaScale = (currentDistance - lastTouchDistance) * 0.01;
-                        this.zoom(deltaScale);
-                        lastTouchDistance = currentDistance;
-                    }
-                    e.preventDefault();
-                });
-
-                this.modalImg.addEventListener('touchend', () => {
-                    this.isDragging = false;
-                });
-            }
-
-            setupProgressListener() {
-                const eventSource = new EventSource('/api/scan-progress');
-                
-                eventSource.onmessage = (event) => {
-                    const data = JSON.parse(event.data);
-                    
-                    if (data.type === 'thumbnail_ready') {
-                        // Handle thumbnail completion
-                        this.updateThumbnail(data.media);
-                    } else if (data.type === 'tiny_preview_ready') {
-                        // Handle tiny preview ready
-                        this.updateTinyPreview(data.media);
-                    } else if (data.type === 'thumbnail_progress') {
-                        // Handle individual thumbnail progress
-                        this.updateThumbnailProgress(data.media, data.status, data.progress);
-                    } else if (data.type === 'global_thumbnail_progress') {
-                        // Handle global thumbnail progress
-                        this.updateGlobalProgress(data);
-                    } else {
-                        // Handle scanning progress
-                        this.updateProgress(data);
-                    }
-                };
-                
-                eventSource.onerror = (error) => {
-                    console.warn('Progress EventSource error:', error);
-                };
-            }
-
-            updateProgress(progress) {
-                this.filesFound.textContent = progress.filesFound;
-                this.directoriesScanned.textContent = progress.directoriesScanned;
-                this.currentDirectory.textContent = progress.currentDirectory;
-                
-                if (progress.isScanning) {
-                    this.progressText.textContent = `Scanning: ${progress.currentDirectory}`;
-                    // Simple progress indication based on directories scanned
-                    const progressPercent = Math.min(95, progress.directoriesScanned * 2);
-                    this.progressFill.style.width = `${progressPercent}%`;
-                } else {
-                    this.progressText.textContent = 'Scan complete! Loading gallery...';
-                    this.progressFill.style.width = '100%';
-                    
-                    // Hide progress after a short delay when complete
-                    setTimeout(() => {
-                        this.progressContainer.style.display = 'none';
-                    }, 1500);
-                }
             }
 
             async loadGallery() {
                 try {
                     const response = await fetch('/api/gallery');
                     const data = await response.json();
-
-                    if (!response.ok) {
-                        throw new Error(data.error || 'Failed to load gallery');
-                    }
-
-                    this.renderGallery(data);
-                    this.updateCacheStatus();
-                } catch (error) {
-                    this.showError(error.message);
-                } finally {
-                    document.getElementById('loading').style.display = 'none';
-                }
-            }
-
-            renderGallery(data) {
-                const infoElement = document.getElementById('gallery-info');
-                const containerElement = document.getElementById('gallery-container');
-
-                infoElement.textContent = `Found ${data.totalImages} media files`;
-                this.updateBreadcrumb(data.scanDirectory);
-
-                if (data.totalImages === 0) {
-                    containerElement.innerHTML = '<div class="error">No images found in the specified directory.</div>';
-                    return;
-                }
-
-                containerElement.innerHTML = '';
-
-                // Sort directories for consistent display
-                const sortedDirs = Object.keys(data.galleries).sort();
-
-                sortedDirs.forEach(directory => {
-                    const images = data.galleries[directory];
-                    const section = document.createElement('div');
-                    section.className = 'gallery-section';
-
-                    const title = document.createElement('div');
-                    title.className = 'directory-title';
-                    title.textContent = directory === '.' ? 'Root Directory' : directory;
-
-                    const grid = document.createElement('div');
-                    grid.className = 'image-grid';
-
-                    images.forEach(image => {
-                        const card = this.createImageCard(image);
-                        grid.appendChild(card);
-                    });
-
-                    section.appendChild(title);
-                    section.appendChild(grid);
-                    containerElement.appendChild(section);
-                });
-            }
-
-            createImageCard(media) {
-                const card = document.createElement('div');
-                card.className = 'image-card';
-                card.dataset.relativePath = media.relativePath; // Add identifier
-
-                const mediaContainer = document.createElement('div');
-                mediaContainer.className = 'media-container';
-
-                const thumbnail = document.createElement('img');
-                thumbnail.className = 'image-thumbnail';
-                
-                if (media.thumbnail) {
-                    thumbnail.src = media.thumbnail;
-                } else {
-                    // Show placeholder for pending thumbnails
-                    thumbnail.src = 'data:image/svg+xml;base64,' + btoa(`
-                        <svg width="300" height="200" xmlns="http://www.w3.org/2000/svg">
-                            <rect width="100%" height="100%" fill="#f0f0f0"/>
-                            <circle cx="150" cy="100" r="30" fill="#ddd"/>
-                            <text x="150" y="140" text-anchor="middle" fill="#999" font-size="12">Queued...</text>
-                        </svg>
-                    `);
-                    card.classList.add('pending-thumbnail');
                     
-                    // Add progress bar for pending thumbnails
-                    const progressBar = document.createElement('div');
-                    progressBar.className = 'thumbnail-progress';
-                    progressBar.innerHTML = `
-                        <div class="progress-bar">
-                            <div class="progress-fill"></div>
-                        </div>
-                        <div class="progress-text">Queued</div>
-                    `;
-                    mediaContainer.appendChild(progressBar);
+                    document.getElementById('gallery-info').textContent = 
+                        `Found ${data.totalImages} media files`;
+                    
+                    const gallery = document.getElementById('gallery');
+                    
+                    // Display images from all directories
+                    Object.values(data.galleries).flat().forEach(media => {
+                        const item = document.createElement('div');
+                        item.className = 'gallery-item';
+                        
+                        const img = document.createElement('img');
+                        img.src = media.thumbnail;
+                        img.alt = media.name;
+                        img.loading = 'lazy';
+                        
+                        item.appendChild(img);
+                        item.addEventListener('click', () => this.openModal(media));
+                        
+                        gallery.appendChild(item);
+                    });
+                } catch (error) {
+                    document.getElementById('gallery-info').textContent = 
+                        `Error: ${error.message}`;
                 }
-                
-                thumbnail.alt = media.name;
-                thumbnail.loading = 'lazy';
-
-                mediaContainer.appendChild(thumbnail);
-
-                // Add video overlay if it's a video
-                if (media.type === 'video') {
-                    const overlay = document.createElement('div');
-                    overlay.className = 'video-overlay';
-                    overlay.innerHTML = '▶';
-                    mediaContainer.appendChild(overlay);
-                }
-
-                const info = document.createElement('div');
-                info.className = 'image-info';
-
-                const name = document.createElement('div');
-                name.className = 'image-name';
-                name.textContent = media.name;
-
-                const details = document.createElement('div');
-                details.className = 'image-details';
-                const size = this.formatFileSize(media.size);
-                const date = new Date(media.modified).toLocaleDateString();
-                const mediaType = media.type === 'video' ? 'Video' : 'Image';
-                details.textContent = `${mediaType} • ${size} • ${date}`;
-
-                info.appendChild(name);
-                info.appendChild(details);
-                card.appendChild(mediaContainer);
-                card.appendChild(info);
-
-                // Add click handler to open full-size media
-                card.addEventListener('click', () => {
-                    this.openModal(media.url, media.name, media.type);
-                });
-
-                return card;
             }
 
-            openModal(mediaUrl, mediaName, mediaType) {
-                if (mediaType === 'video') {
+            openModal(media) {
+                if (media.type === 'video') {
                     this.modalImg.style.display = 'none';
                     this.modalVideo.style.display = 'block';
-                    this.modalVideo.src = mediaUrl;
-                    this.zoomControls.style.display = 'none';
-                    this.zoomInfo.style.display = 'none';
+                    this.modalVideo.src = media.url;
+                    this.zoomControls.classList.remove('active');
+                    this.zoomInfo.classList.remove('active');
                 } else {
                     this.modalVideo.style.display = 'none';
                     this.modalImg.style.display = 'block';
-                    this.modalImg.src = mediaUrl;
-                    this.modalImg.alt = mediaName;
-                    this.zoomControls.style.display = 'flex';
-                    this.zoomInfo.style.display = 'block';
+                    this.modalImg.src = media.url;
+                    this.modalImg.alt = media.name;
+                    this.zoomControls.classList.add('active');
+                    this.zoomInfo.classList.add('active');
                     this.resetZoom();
                 }
-                this.modal.style.display = "flex";
+                this.modal.classList.add('active');
             }
 
             closeModal() {
-                this.modal.style.display = "none";
-                // Pause video if playing
+                this.modal.classList.remove('active');
                 if (this.modalVideo.style.display === 'block') {
                     this.modalVideo.pause();
                     this.modalVideo.src = '';
@@ -1189,19 +439,8 @@
                 this.zoom(-0.2);
             }
 
-            zoom(delta, centerX = null, centerY = null) {
+            zoom(delta) {
                 const newScale = Math.max(0.1, Math.min(5, this.scale + delta));
-                
-                if (centerX !== null && centerY !== null) {
-                    // Zoom towards specific point (mouse position)
-                    const rect = this.modalImg.getBoundingClientRect();
-                    const relativeX = centerX - rect.width / 2;
-                    const relativeY = centerY - rect.height / 2;
-                    
-                    this.translateX -= relativeX * delta;
-                    this.translateY -= relativeY * delta;
-                }
-                
                 this.scale = newScale;
                 this.updateTransform();
                 this.updateZoomInfo();
@@ -1216,270 +455,16 @@
             }
 
             updateTransform() {
-                this.modalImg.style.transform = `translate(${this.translateX}px, ${this.translateY}px) scale(${this.scale})`;
+                this.modalImg.style.transform = 
+                    `translate(${this.translateX}px, ${this.translateY}px) scale(${this.scale})`;
             }
 
             updateZoomInfo() {
                 this.zoomInfo.textContent = `${Math.round(this.scale * 100)}%`;
             }
-
-            // Theme Management
-            getStoredTheme() {
-                return localStorage.getItem('gallery-theme') || 'system';
-            }
-
-            setStoredTheme(theme) {
-                localStorage.setItem('gallery-theme', theme);
-            }
-
-            getSystemTheme() {
-                return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-            }
-
-            initTheme() {
-                this.applyTheme(this.currentTheme);
-                this.updateThemeButtons();
-                
-                // Listen for system theme changes
-                window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
-                    if (this.currentTheme === 'system') {
-                        this.applyTheme('system');
-                    }
-                });
-            }
-
-            setTheme(theme) {
-                this.currentTheme = theme;
-                this.setStoredTheme(theme);
-                this.applyTheme(theme);
-                this.updateThemeButtons();
-            }
-
-            applyTheme(theme) {
-                const effectiveTheme = theme === 'system' ? this.getSystemTheme() : theme;
-                
-                if (effectiveTheme === 'dark') {
-                    document.documentElement.setAttribute('data-theme', 'dark');
-                } else {
-                    document.documentElement.removeAttribute('data-theme');
-                }
-            }
-
-            updateThemeButtons() {
-                this.themeButtons.forEach(btn => {
-                    btn.classList.toggle('active', btn.dataset.theme === this.currentTheme);
-                });
-            }
-
-            // Progressive Loading - Update thumbnail when ready
-            updateThumbnail(media) {
-                // Find the card with matching relative path
-                const card = document.querySelector(`[data-relative-path="${CSS.escape(media.relativePath)}"]`);
-                if (card) {
-                    const thumbnail = card.querySelector('.image-thumbnail');
-                    const progressBar = card.querySelector('.thumbnail-progress');
-                    
-                    if (thumbnail) {
-                        thumbnail.src = media.thumbnail;
-                        card.classList.remove('pending-thumbnail');
-                        card.classList.add('thumbnail-loaded');
-                        
-                        // Remove progress bar
-                        if (progressBar) {
-                            progressBar.remove();
-                        }
-                        
-                        // Add subtle animation to indicate the update
-                        card.style.animation = 'thumbnailLoad 0.3s ease-out';
-                        setTimeout(() => {
-                            card.style.animation = '';
-                        }, 300);
-                    }
-                }
-            }
-            
-            // Update tiny preview when ready
-            updateTinyPreview(media) {
-                const card = document.querySelector(`[data-relative-path="${CSS.escape(media.relativePath)}"]`);
-                if (card) {
-                    const thumbnail = card.querySelector('.image-thumbnail');
-                    const progressBar = card.querySelector('.thumbnail-progress');
-                    
-                    if (thumbnail) {
-                        // Replace placeholder with tiny preview
-                        thumbnail.src = media.tinyPreview;
-                        card.classList.add('tiny-preview-loaded');
-                        
-                        // Update progress bar to show preview loaded
-                        if (progressBar) {
-                            const progressText = progressBar.querySelector('.progress-text');
-                            if (progressText) {
-                                progressText.textContent = 'Preview loaded...';
-                            }
-                        }
-                    }
-                }
-            }
-            
-            // Update individual thumbnail progress
-            updateThumbnailProgress(media, status, progress) {
-                const card = document.querySelector(`[data-relative-path="${CSS.escape(media.relativePath)}"]`);
-                if (card) {
-                    const progressBar = card.querySelector('.thumbnail-progress');
-                    if (progressBar) {
-                        const progressFill = progressBar.querySelector('.progress-fill');
-                        const progressText = progressBar.querySelector('.progress-text');
-                        
-                        if (progressFill && progressText) {
-                            progressFill.style.width = `${progress}%`;
-                            
-                            // Update status text and colors
-                            switch (status) {
-                                case 'starting':
-                                    progressText.textContent = 'Starting...';
-                                    progressBar.className = 'thumbnail-progress starting';
-                                    break;
-                                case 'processing':
-                                    progressText.textContent = `Processing... ${progress}%`;
-                                    progressBar.className = 'thumbnail-progress processing';
-                                    break;
-                                case 'complete':
-                                    progressText.textContent = 'Complete!';
-                                    progressBar.className = 'thumbnail-progress complete';
-                                    setTimeout(() => {
-                                        if (progressBar.parentNode) {
-                                            progressBar.remove();
-                                        }
-                                    }, 500);
-                                    break;
-                                case 'error':
-                                    progressText.textContent = 'Failed';
-                                    progressBar.className = 'thumbnail-progress error';
-                                    break;
-                            }
-                        }
-                    }
-                }
-            }
-            
-            // Update global thumbnail progress
-            updateGlobalProgress(data) {
-                if (data.isGenerating) {
-                    this.globalProgress.style.display = 'block';
-                    this.globalProgressBar.style.width = `${data.progress}%`;
-                    this.progressStats.textContent = `${data.completed}/${data.total}`;
-                    
-                    if (data.currentFile) {
-                        this.currentFile.textContent = `Processing: ${data.currentFile}`;
-                    }
-                } else {
-                    // Hide progress bar after completion with a delay
-                    setTimeout(() => {
-                        this.globalProgress.style.display = 'none';
-                    }, 2000);
-                    
-                    this.progressStats.textContent = `${data.completed}/${data.total} complete`;
-                    this.currentFile.textContent = 'Thumbnail generation complete!';
-                }
-            }
-            
-            // Cache and Rescan Management
-            async rescanGallery() {
-                this.rescanBtn.disabled = true;
-                this.rescanBtn.textContent = '🔄 Scanning...';
-                
-                try {
-                    const response = await fetch('/api/rescan', { method: 'POST' });
-                    
-                    if (response.ok) {
-                        const data = await response.json();
-                        this.renderGallery(data);
-                        this.updateCacheStatus();
-                    } else {
-                        throw new Error('Rescan failed');
-                    }
-                } catch (error) {
-                    console.error('Rescan error:', error);
-                    alert('Failed to rescan gallery. Please try again.');
-                } finally {
-                    this.rescanBtn.disabled = false;
-                    this.rescanBtn.textContent = '🔄 Rescan';
-                }
-            }
-
-            async updateCacheStatus() {
-                try {
-                    const response = await fetch('/api/cache-status');
-                    if (response.ok) {
-                        const status = await response.json();
-                        const age = status.age ? Math.round(status.age / 1000) : 0;
-                        const cacheText = status.cached 
-                            ? `Cached ${age}s ago${status.isStale ? ' (stale)' : ''}`
-                            : 'Not cached';
-                        this.cacheStatus.textContent = cacheText;
-                    }
-                } catch (error) {
-                    console.warn('Could not fetch cache status:', error);
-                }
-            }
-
-            updateBreadcrumb(scanDirectory) {
-                // Split path and create breadcrumb trail
-                const pathParts = scanDirectory.replace(/\/+$/, '').split('/');
-                const breadcrumbItems = [];
-                
-                pathParts.forEach((part, index) => {
-                    if (!part && index === 0) {
-                        // Root directory
-                        breadcrumbItems.push(
-                            `<span class="breadcrumb-item">
-                                <span class="breadcrumb-current">/</span>
-                            </span>`
-                        );
-                    } else if (part) {
-                        const isLast = index === pathParts.length - 1;
-                        if (isLast) {
-                            breadcrumbItems.push(
-                                `<span class="breadcrumb-item">
-                                    <span class="breadcrumb-separator">/</span>
-                                    <span class="breadcrumb-current">${this.escapeHtml(part)}</span>
-                                </span>`
-                            );
-                        } else {
-                            breadcrumbItems.push(
-                                `<span class="breadcrumb-item">
-                                    <span class="breadcrumb-separator">/</span>
-                                    <span class="breadcrumb-link">${this.escapeHtml(part)}</span>
-                                </span>`
-                            );
-                        }
-                    }
-                });
-                
-                this.breadcrumb.innerHTML = breadcrumbItems.join('');
-            }
-
-            escapeHtml(text) {
-                const div = document.createElement('div');
-                div.textContent = text;
-                return div.innerHTML;
-            }
-
-            formatFileSize(bytes) {
-                if (bytes === 0) return '0 Bytes';
-                const k = 1024;
-                const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-                const i = Math.floor(Math.log(bytes) / Math.log(k));
-                return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
-            }
-
-            showError(message) {
-                const containerElement = document.getElementById('gallery-container');
-                containerElement.innerHTML = `<div class="error">Error: ${message}</div>`;
-            }
         }
 
-        // Initialize gallery when page loads
+        // Initialize gallery
         document.addEventListener('DOMContentLoaded', () => {
             new ImageGallery();
         });
