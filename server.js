@@ -42,6 +42,28 @@ function isMedia(filename) {
     return isImage(filename) || isVideo(filename);
 }
 
+// Check if a file is likely a generated thumbnail
+function isLikelyThumbnail(filePath, filename) {
+    // Skip files in static/thumbnails or metadata directories
+    if (filePath.includes('static' + path.sep + 'thumbnails') || filePath.includes('metadata')) {
+        return true;
+    }
+    
+    // Skip files that match thumbnail naming pattern (base64 encoded + .jpg)
+    if (filename.match(/^[A-Za-z0-9+/]+=*\.jpg$/)) {
+        return true;
+    }
+    
+    // Skip common thumbnail directory patterns
+    const thumbnailDirs = ['thumbnails', 'thumb', 'thumbs', '.thumbnails'];
+    const dirParts = path.dirname(filePath).toLowerCase().split(path.sep);
+    if (thumbnailDirs.some(thumbDir => dirParts.includes(thumbDir))) {
+        return true;
+    }
+    
+    return false;
+}
+
 // Check if port is available
 function checkPort(port) {
     return new Promise((resolve) => {
@@ -109,7 +131,7 @@ async function scanDirectory(dir, isRoot = false) {
                     const subImages = await scanDirectory(fullPath, false);
                     images.push(...subImages);
                 }
-            } else if (item.isFile() && isMedia(item.name)) {
+            } else if (item.isFile() && isMedia(item.name) && !isLikelyThumbnail(fullPath, item.name)) {
                 const stats = await fs.stat(fullPath);
                 images.push({
                     name: item.name,

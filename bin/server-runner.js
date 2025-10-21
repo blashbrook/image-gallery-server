@@ -62,6 +62,28 @@ function isMedia(filename) {
     return isImage(filename) || isVideo(filename);
 }
 
+// Check if a file is likely a generated thumbnail
+function isLikelyThumbnail(filePath, filename) {
+    // Skip files in .gallery-cache directories
+    if (filePath.includes('.gallery-cache')) {
+        return true;
+    }
+    
+    // Skip files that match thumbnail naming pattern (base64 encoded + .jpg)
+    if (filename.match(/^[A-Za-z0-9+/]+=*\.jpg$/)) {
+        return true;
+    }
+    
+    // Skip common thumbnail directory patterns
+    const thumbnailDirs = ['thumbnails', 'thumb', 'thumbs', '.thumbnails'];
+    const dirParts = path.dirname(filePath).toLowerCase().split(path.sep);
+    if (thumbnailDirs.some(thumbDir => dirParts.includes(thumbDir))) {
+        return true;
+    }
+    
+    return false;
+}
+
 function checkPort(port) {
     return new Promise((resolve) => {
         const server = net.createServer();
@@ -120,11 +142,11 @@ async function scanDirectory(dir, isRoot = false) {
             const fullPath = path.join(dir, item.name);
             
             if (item.isDirectory()) {
-                if (!item.name.startsWith('.') && item.name !== 'node_modules') {
+                if (!item.name.startsWith('.') && item.name !== 'node_modules' && item.name !== '.gallery-cache') {
                     const subImages = await scanDirectory(fullPath, false);
                     images.push(...subImages);
                 }
-            } else if (item.isFile() && isMedia(item.name)) {
+            } else if (item.isFile() && isMedia(item.name) && !isLikelyThumbnail(fullPath, item.name)) {
                 const stats = await fs.stat(fullPath);
                 images.push({
                     name: item.name,
