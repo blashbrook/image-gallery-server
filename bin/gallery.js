@@ -433,7 +433,7 @@ program
             const result = await launchBackgroundServer(scanDir, port, openBrowser);
             console.log(`✅ Gallery server starting in background (PID: ${result.pid})`);
             console.log(`🌐 Server will be available at: http://localhost:${port}`);
-            console.log('💡 Use "gallery stop" to stop the server');
+            console.log('💡 Use "gallery down" to stop the server');
             
             // Exit the CLI process to return control to the terminal
             process.exit(0);
@@ -478,9 +478,24 @@ program
     });
 
 program
-    .command('stop')
+    .command('down')
     .description('Stop all running gallery servers')
     .action(async () => {
+        try {
+            console.log('🛑 Stopping gallery servers...');
+            await killAllGalleryProcesses();
+        } catch (error) {
+            console.error('Failed to stop gallery servers:', error.message);
+            process.exit(1);
+        }
+    });
+
+// Alias 'stop' to 'down' for backwards compatibility
+program
+    .command('stop')
+    .description('Stop all running gallery servers (alias for down)')
+    .action(async () => {
+        console.log('💡 Note: "stop" is deprecated, use "gallery down" instead');
         try {
             console.log('🛑 Stopping gallery servers...');
             await killAllGalleryProcesses();

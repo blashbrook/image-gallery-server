@@ -15,10 +15,11 @@ const chokidar = require('chokidar');
 const config = JSON.parse(process.argv[2]);
 const { scanDir, port, openBrowser, packageDir } = config;
 
-// Setup paths
-const PUBLIC_DIR = path.join(packageDir, 'public');
-const METADATA_DIR = path.join(process.cwd(), '.gallery-cache', 'metadata');
-const THUMBNAILS_DIR = path.join(process.cwd(), '.gallery-cache', 'thumbnails');
+// Setup paths - everything goes in .gallery-cache in the working directory
+const GALLERY_CACHE_DIR = path.join(process.cwd(), '.gallery-cache');
+const METADATA_DIR = path.join(GALLERY_CACHE_DIR, 'metadata');
+const THUMBNAILS_DIR = path.join(GALLERY_CACHE_DIR, 'thumbnails');
+const HTML_FILE = path.join(GALLERY_CACHE_DIR, 'index.html');
 
 // Supported media extensions
 const IMAGE_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp', '.tiff', '.svg'];
@@ -800,9 +801,207 @@ async function generateThumbnailsInBackground(pendingImages) {
     console.log(`🌐 Active SSE connections: ${sseClients.size}`);
 }
 
+// Generate the index.html file in .gallery-cache
+async function generateIndexHTML() {
+    const htmlContent = `<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gallery</title>
+    <style>
+        :root {
+            --bg-primary: #ffffff;
+            --bg-secondary: #f8f9fa;
+            --text-primary: #2c3e50;
+            --text-secondary: #7f8c8d;
+            --modal-bg: rgba(0,0,0,0.95);
+            --button-bg: rgba(255,255,255,0.15);
+            --button-bg-hover: rgba(255,255,255,0.25);
+            --button-text: #ffffff;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+        }
+        .header {
+            background: var(--bg-primary);
+            padding: 0.75rem 1.5rem;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin-bottom: 1.5rem;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+        .header h1 { font-size: 1.5rem; margin: 0; }
+        .info { font-size: 0.9rem; color: var(--text-secondary); margin-top: 0.25rem; }
+        .gallery { column-count: 5; column-gap: 15px; padding: 0 2rem 2rem; }
+        .gallery-item {
+            break-inside: avoid;
+            margin-bottom: 15px;
+            cursor: pointer;
+            transition: transform 0.2s;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        .gallery-item:hover { transform: translateY(-5px); box-shadow: 0 8px 20px rgba(0,0,0,0.15); }
+        .gallery-item img { width: 100%; height: auto; display: block; }
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 2000;
+            left: 0; top: 0;
+            width: 100%; height: 100%;
+            background-color: var(--modal-bg);
+            justify-content: center;
+            align-items: center;
+        }
+        .modal.active { display: flex; }
+        .modal-image {
+            max-width: 90%; max-height: 90%;
+            object-fit: contain;
+            border-radius: 8px;
+            cursor: grab;
+        }
+        .modal-image.panning { cursor: grabbing; }
+        .modal-video { max-width: 90%; max-height: 90%; border-radius: 8px; }
+        /* Round, Visible Close Button */
+        .close {
+            position: fixed; top: 20px; right: 20px;
+            width: 56px; height: 56px; border-radius: 50%;
+            background: var(--button-bg); backdrop-filter: blur(10px);
+            border: 2px solid rgba(255,255,255,0.3);
+            color: var(--button-text); font-size: 28px;
+            cursor: pointer; z-index: 2001;
+            display: flex; align-items: center; justify-content: center;
+            transition: all 0.2s ease;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+        }
+        .close:hover { background: var(--button-bg-hover); transform: scale(1.1) rotate(90deg); box-shadow: 0 6px 20px rgba(0,0,0,0.6); }
+        .zoom-controls {
+            position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%);
+            display: none; gap: 12px; z-index: 2001;
+        }
+        .zoom-controls.active { display: flex; }
+        .zoom-btn {
+            width: 48px; height: 48px; border-radius: 50%;
+            background: var(--button-bg); backdrop-filter: blur(10px);
+            border: 2px solid rgba(255,255,255,0.3);
+            color: var(--button-text); font-size: 22px;
+            cursor: pointer; display: flex; align-items: center; justify-content: center;
+            transition: all 0.2s ease; box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+        }
+        .zoom-btn:hover { background: var(--button-bg-hover); transform: scale(1.15); box-shadow: 0 6px 20px rgba(0,0,0,0.6); }
+        .zoom-info {
+            position: fixed; top: 30px; left: 30px;
+            background: var(--button-bg); backdrop-filter: blur(10px);
+            border: 2px solid rgba(255,255,255,0.3);
+            color: var(--button-text); padding: 10px 20px; border-radius: 24px;
+            font-size: 14px; font-weight: 600; z-index: 2001;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.4); display: none;
+        }
+        .zoom-info.active { display: block; }
+        @media (max-width: 1200px) { .gallery { column-count: 4; } }
+        @media (max-width: 900px) { .gallery { column-count: 3; } }
+        @media (max-width: 600px) { .gallery { column-count: 2; } }
+    </style>
+</head>
+<body>
+    <div class="header"><div><h1>📷 Gallery</h1><div class="info" id="gallery-info">Loading...</div></div></div>
+    <div class="gallery" id="gallery"></div>
+    <div class="modal" id="imageModal">
+        <div class="close" id="closeModal">✕</div>
+        <div class="zoom-info" id="zoomInfo">100%</div>
+        <img class="modal-image" id="modalImage" style="display: none;">
+        <video class="modal-video" id="modalVideo" controls style="display: none;"></video>
+        <div class="zoom-controls" id="zoomControls">
+            <button class="zoom-btn" id="zoomOut">−</button>
+            <button class="zoom-btn" id="resetZoom">⌂</button>
+            <button class="zoom-btn" id="zoomIn">+</button>
+        </div>
+    </div>
+    <script>
+        const modal = document.getElementById('imageModal');
+        const modalImg = document.getElementById('modalImage');
+        const modalVideo = document.getElementById('modalVideo');
+        const zoomControls = document.getElementById('zoomControls');
+        const zoomInfo = document.getElementById('zoomInfo');
+        let scale = 1, translateX = 0, translateY = 0, isDragging = false, lastX = 0, lastY = 0;
+        
+        async function loadGallery() {
+            const response = await fetch('/api/gallery');
+            const data = await response.json();
+            document.getElementById('gallery-info').textContent = \`Found \${data.totalImages} media files\`;
+            Object.values(data.galleries).flat().forEach(media => {
+                const item = document.createElement('div');
+                item.className = 'gallery-item';
+                const img = document.createElement('img');
+                img.src = media.thumbnail;
+                img.alt = media.name;
+                img.loading = 'lazy';
+                item.appendChild(img);
+                item.onclick = () => openModal(media);
+                document.getElementById('gallery').appendChild(item);
+            });
+        }
+        
+        function openModal(media) {
+            if (media.type === 'video') {
+                modalImg.style.display = 'none';
+                modalVideo.style.display = 'block';
+                modalVideo.src = media.url;
+                zoomControls.classList.remove('active');
+                zoomInfo.classList.remove('active');
+            } else {
+                modalVideo.style.display = 'none';
+                modalImg.style.display = 'block';
+                modalImg.src = media.url;
+                zoomControls.classList.add('active');
+                zoomInfo.classList.add('active');
+                resetZoom();
+            }
+            modal.classList.add('active');
+        }
+        
+        function closeModal() {
+            modal.classList.remove('active');
+            if (modalVideo.style.display === 'block') { modalVideo.pause(); modalVideo.src = ''; }
+            modalImg.src = ''; resetZoom();
+        }
+        
+        function zoom(delta) {
+            scale = Math.max(0.1, Math.min(5, scale + delta));
+            modalImg.style.transform = \`translate(\${translateX}px, \${translateY}px) scale(\${scale})\`;
+            zoomInfo.textContent = \`\${Math.round(scale * 100)}%\`;
+        }
+        
+        function resetZoom() { scale = 1; translateX = 0; translateY = 0; zoom(0); }
+        
+        document.getElementById('closeModal').onclick = closeModal;
+        modal.onclick = (e) => { if (e.target === modal) closeModal(); };
+        document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeModal(); });
+        document.getElementById('zoomIn').onclick = () => zoom(0.2);
+        document.getElementById('zoomOut').onclick = () => zoom(-0.2);
+        document.getElementById('resetZoom').onclick = resetZoom;
+        modalImg.addEventListener('wheel', (e) => { e.preventDefault(); zoom(e.deltaY > 0 ? -0.1 : 0.1); });
+        modalImg.addEventListener('mousedown', (e) => { if (scale > 1) { isDragging = true; lastX = e.clientX; lastY = e.clientY; e.preventDefault(); } });
+        document.addEventListener('mousemove', (e) => { if (isDragging) { translateX += e.clientX - lastX; translateY += e.clientY - lastY; lastX = e.clientX; lastY = e.clientY; zoom(0); } });
+        document.addEventListener('mouseup', () => { isDragging = false; });
+        loadGallery();
+    </script>
+</body>
+</html>`;
+    
+    await fs.writeFile(HTML_FILE, htmlContent, 'utf8');
+    console.log(`✅ Generated index.html in .gallery-cache`);
+}
+
 // Write PID file for process management
 async function writePidFile() {
-    const pidFile = path.join(process.cwd(), '.gallery-cache', 'gallery.pid');
+    const pidFile = path.join(GALLERY_CACHE_DIR, 'gallery.pid');
     await fs.writeFile(pidFile, process.pid.toString());
 }
 
@@ -812,11 +1011,13 @@ async function setupServer() {
     await fs.mkdir(METADATA_DIR, { recursive: true });
     await fs.mkdir(THUMBNAILS_DIR, { recursive: true });
     
+    // Generate the index.html file
+    await generateIndexHTML();
+    
     const app = express();
     
-    // Serve static files
-    app.use('/static', express.static(path.join(process.cwd(), '.gallery-cache')));
-    app.use('/public', express.static(PUBLIC_DIR));
+    // Serve static files from .gallery-cache
+    app.use('/static', express.static(GALLERY_CACHE_DIR));
     
     // Server-Sent Events endpoint
     app.get('/api/scan-progress', (req, res) => {
@@ -911,9 +1112,9 @@ async function setupServer() {
         }
     });
     
-    // Serve the main gallery page
+    // Serve the main gallery page from .gallery-cache
     app.get('/', (req, res) => {
-        res.sendFile(path.join(PUBLIC_DIR, 'index.html'));
+        res.sendFile(HTML_FILE);
     });
     
     return app;
