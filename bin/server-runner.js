@@ -240,6 +240,44 @@ async function getThumbnail(media) {
     }
 }
 
+// Check if thumbnail exists without generating it
+async function hasThumbnail(media) {
+    const thumbnailName = `${Buffer.from(media.relativePath).toString('base64')}.jpg`;
+    const thumbnailPath = path.join(THUMBNAILS_DIR, thumbnailName);
+    
+    try {
+        await fs.access(thumbnailPath);
+        return `/static/thumbnails/${thumbnailName}`;
+    } catch {
+        return null;
+    }
+}
+
+// Generate thumbnail and broadcast update to clients
+async function generateThumbnailWithBroadcast(media) {
+    const thumbnailUrl = await getThumbnail(media);
+    if (thumbnailUrl) {
+        // Broadcast thumbnail completion to all clients
+        const updateData = {
+            type: 'thumbnail_ready',
+            media: {
+                ...media,
+                thumbnail: thumbnailUrl,
+                url: `/image/${encodeURIComponent(media.relativePath)}`
+            }
+        };
+        
+        sseClients.forEach(client => {
+            try {
+                client.write(`data: ${JSON.stringify(updateData)}\n\n`);
+            } catch (error) {
+                sseClients.delete(client);
+            }
+        });
+    }
+    return thumbnailUrl;
+}
+
 // Invalidate cache and broadcast update
 function invalidateCache(reason = 'File system change') {
     console.log(`📁 Cache invalidated: ${reason}`);
@@ -343,7 +381,7 @@ async function cleanupOrphanedThumbnails() {
     }
 }
 
-// Get cached or fresh gallery data
+// Get cached or fresh gallery data with progressive loading
 async function getCachedGalleryData() {
     const now = Date.now();
     
@@ -355,7 +393,7 @@ async function getCachedGalleryData() {
         return galleryCache.data;
     }
     
-    // Scan and cache new data
+    // Scan and cache new data with progressive loading
     console.log('🔍 Scanning for fresh gallery data...');
     
     // Clean up orphaned thumbnails during fresh scan
@@ -363,18 +401,30 @@ async function getCachedGalleryData() {
     
     const images = await scanDirectory(scanDir, true);
     const galleries = {};
+    const pendingThumbnails = [];
     
+    // First pass: Add all images, checking for existing thumbnails
     for (const image of images) {
         if (!galleries[image.directory]) {
             galleries[image.directory] = [];
         }
         
-        const thumbnailUrl = await getThumbnail(image);
-        galleries[image.directory].push({
+        // Check if thumbnail already exists (no generation)
+        const existingThumbnail = await hasThumbnail(image);
+        
+        const imageData = {
             ...image,
-            thumbnail: thumbnailUrl,
-            url: `/image/${encodeURIComponent(image.relativePath)}`
-        });
+            thumbnail: existingThumbnail,
+            url: `/image/${encodeURIComponent(image.relativePath)}`,
+            thumbnailReady: !!existingThumbnail
+        };
+        
+        galleries[image.directory].push(imageData);
+        
+        // Queue for thumbnail generation if needed
+        if (!existingThumbnail) {
+            pendingThumbnails.push(image);
+        }
     }
     
     const result = {
@@ -382,7 +432,8 @@ async function getCachedGalleryData() {
         totalImages: images.length,
         galleries,
         lastScan: now,
-        cached: false
+        cached: false,
+        pendingThumbnails: pendingThumbnails.length
     };
     
     // Update cache
@@ -390,7 +441,42 @@ async function getCachedGalleryData() {
     galleryCache.lastScan = now;
     galleryCache.isStale = false;
     
+    // Start background thumbnail generation for pending items
+    if (pendingThumbnails.length > 0) {
+        console.log(`🖼️  Starting background generation of ${pendingThumbnails.length} thumbnails...`);
+        
+        // Don't await this - let it run in background
+        generateThumbnailsInBackground(pendingThumbnails);
+    }
+    
     return result;
+}
+
+// Generate thumbnails in background with progress updates
+async function generateThumbnailsInBackground(pendingImages) {
+    const batchSize = 3; // Process 3 thumbnails concurrently
+    
+    for (let i = 0; i < pendingImages.length; i += batchSize) {
+        const batch = pendingImages.slice(i, i + batchSize);
+        
+        // Process batch concurrently
+        const promises = batch.map(async (image) => {
+            try {
+                await generateThumbnailWithBroadcast(image);
+            } catch (error) {
+                console.warn(`Failed to generate thumbnail for ${image.name}:`, error.message);
+            }
+        });
+        
+        await Promise.all(promises);
+        
+        // Small delay between batches to avoid overwhelming the system
+        if (i + batchSize < pendingImages.length) {
+            await new Promise(resolve => setTimeout(resolve, 100));
+        }
+    }
+    
+    console.log(`✅ Background thumbnail generation completed`);
 }
 
 // Write PID file for process management

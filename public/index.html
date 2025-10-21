@@ -308,7 +308,26 @@
 
         .image-card:hover {
             transform: translateY(-5px);
-            box-shadow: var(--shadow-hover);
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+        }
+        
+        .image-card.pending-thumbnail {
+            opacity: 0.7;
+        }
+        
+        .image-card.pending-thumbnail .image-thumbnail {
+            filter: grayscale(0.5) brightness(1.1);
+        }
+        
+        @keyframes thumbnailLoad {
+            0% {
+                opacity: 0.7;
+                transform: scale(0.98);
+            }
+            100% {
+                opacity: 1;
+                transform: scale(1);
+            }
         }
 
         .image-thumbnail {
@@ -739,8 +758,15 @@
                 const eventSource = new EventSource('/api/scan-progress');
                 
                 eventSource.onmessage = (event) => {
-                    const progress = JSON.parse(event.data);
-                    this.updateProgress(progress);
+                    const data = JSON.parse(event.data);
+                    
+                    if (data.type === 'thumbnail_ready') {
+                        // Handle thumbnail completion
+                        this.updateThumbnail(data.media);
+                    } else {
+                        // Handle scanning progress
+                        this.updateProgress(data);
+                    }
                 };
                 
                 eventSource.onerror = (error) => {
@@ -830,13 +856,28 @@
             createImageCard(media) {
                 const card = document.createElement('div');
                 card.className = 'image-card';
+                card.dataset.relativePath = media.relativePath; // Add identifier
 
                 const mediaContainer = document.createElement('div');
                 mediaContainer.className = 'media-container';
 
                 const thumbnail = document.createElement('img');
                 thumbnail.className = 'image-thumbnail';
-                thumbnail.src = media.thumbnail || media.url;
+                
+                if (media.thumbnail) {
+                    thumbnail.src = media.thumbnail;
+                } else {
+                    // Show placeholder for pending thumbnails
+                    thumbnail.src = 'data:image/svg+xml;base64,' + btoa(`
+                        <svg width="300" height="200" xmlns="http://www.w3.org/2000/svg">
+                            <rect width="100%" height="100%" fill="#f0f0f0"/>
+                            <circle cx="150" cy="100" r="30" fill="#ddd"/>
+                            <text x="150" y="140" text-anchor="middle" fill="#999" font-size="12">Loading...</text>
+                        </svg>
+                    `);
+                    card.classList.add('pending-thumbnail');
+                }
+                
                 thumbnail.alt = media.name;
                 thumbnail.loading = 'lazy';
 
@@ -995,6 +1036,26 @@
                 this.themeButtons.forEach(btn => {
                     btn.classList.toggle('active', btn.dataset.theme === this.currentTheme);
                 });
+            }
+
+            // Progressive Loading - Update thumbnail when ready
+            updateThumbnail(media) {
+                // Find the card with matching relative path
+                const card = document.querySelector(`[data-relative-path="${CSS.escape(media.relativePath)}"]`);
+                if (card) {
+                    const thumbnail = card.querySelector('.image-thumbnail');
+                    if (thumbnail) {
+                        thumbnail.src = media.thumbnail;
+                        card.classList.remove('pending-thumbnail');
+                        card.classList.add('thumbnail-loaded');
+                        
+                        // Add subtle animation to indicate the update
+                        card.style.animation = 'thumbnailLoad 0.3s ease-out';
+                        setTimeout(() => {
+                            card.style.animation = '';
+                        }, 300);
+                    }
+                }
             }
 
             // Cache and Rescan Management
