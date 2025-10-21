@@ -28,13 +28,13 @@ Simply run `gallery up` in any folder with media files, and it will automaticall
 ### 🚀 One-Line Install (Recommended)
 ```bash
 # Install directly from GitHub (when published)
-curl -fsSL https://raw.githubusercontent.com/your-username/image-gallery-server/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/blashbrook/image-gallery-server/main/install.sh | bash
 ```
 
 ### 📦 Local Install (Development)
 ```bash
 # Clone the repository first
-git clone https://github.com/your-username/image-gallery-server.git
+git clone https://github.com/blashbrook/image-gallery-server.git
 cd image-gallery-server
 
 # Run local installer
@@ -53,7 +53,7 @@ npm install -g image-gallery-server
 ### 🗑️ Uninstall
 ```bash
 # Using installer script
-curl -fsSL https://raw.githubusercontent.com/your-username/image-gallery-server/main/install.sh | bash -s -- --uninstall
+curl -fsSL https://raw.githubusercontent.com/blashbrook/image-gallery-server/main/install.sh | bash -s -- --uninstall
 
 # Or local uninstall
 ./install-local.sh --uninstall

@@ -8,7 +8,7 @@ const fs = require('fs').promises;
 const path = require('path');
 const sharp = require('sharp');
 const net = require('net');
-const open = require('open');
+const open = require('open').default;
 const chokidar = require('chokidar');
 
 // Configuration from command line arguments
