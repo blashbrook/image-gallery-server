@@ -925,6 +925,29 @@ async function generateIndexHTML() {
         }
         .gallery-item.loading .loader { display: block; }
         @keyframes spin { to { transform: translate(-50%, -50%) rotate(360deg); } }
+        .heart-btn {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.9);
+            border: none;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            transition: all 0.2s;
+            z-index: 10;
+        }
+        .gallery-item:hover .heart-btn { opacity: 1; }
+        .heart-btn.hearted { opacity: 1; }
+        .heart-btn svg { width: 18px; height: 18px; }
+        .heart-btn:hover { transform: scale(1.1); background: rgba(255,255,255,1); }
+        .heart-btn.hearted svg { fill: #e74c3c; stroke: #e74c3c; }
+        .heart-btn:not(.hearted) svg { fill: none; stroke: #666; }
         .modal {
             display: none;
             position: fixed;
@@ -971,6 +994,8 @@ async function generateIndexHTML() {
             transition: all 0.2s ease; box-shadow: 0 4px 12px rgba(0,0,0,0.4);
         }
         .zoom-btn:hover { background: var(--button-bg-hover); transform: scale(1.15); box-shadow: 0 6px 20px rgba(0,0,0,0.6); }
+        .zoom-btn.hearted svg { fill: #e74c3c; stroke: #e74c3c; }
+        .zoom-btn:not(.hearted) svg { fill: none; }
         .zoom-info {
             position: fixed; top: 30px; left: 30px;
             background: var(--button-bg); backdrop-filter: blur(10px);
@@ -1016,6 +1041,11 @@ async function generateIndexHTML() {
                     <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path>
                 </svg>
             </button>
+            <button class="header-btn" id="filterHeartsBtn" onclick="toggleHeartFilter()" title="Show Favorites">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path>
+                </svg>
+            </button>
         </div>
         <div class="progress-bar-container" id="progressBarContainer">
             <div class="progress-bar" id="progressBar"></div>
@@ -1028,6 +1058,11 @@ async function generateIndexHTML() {
         <img class="modal-image" id="modalImage" style="display: none;">
         <video class="modal-video" id="modalVideo" controls style="display: none;"></video>
         <div class="zoom-controls" id="zoomControls">
+            <button class="zoom-btn" id="heartBtn" title="Favorite">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path>
+                </svg>
+            </button>
             <button class="zoom-btn" id="zoomOut">−</button>
             <button class="zoom-btn" id="resetZoom">⌂</button>
             <button class="zoom-btn" id="zoomIn">+</button>
@@ -1041,8 +1076,83 @@ async function generateIndexHTML() {
         const zoomInfo = document.getElementById('zoomInfo');
         let scale = 1, translateX = 0, translateY = 0, isDragging = false, lastX = 0, lastY = 0;
         const thumbnailCache = new Map();
+        let heartedImages = new Set();
+        let currentModalMedia = null;
+        let showOnlyHearted = false;
+        
+        function loadHearts() {
+            const saved = localStorage.getItem('heartedImages');
+            if (saved) {
+                heartedImages = new Set(JSON.parse(saved));
+            }
+        }
+        
+        function saveHearts() {
+            localStorage.setItem('heartedImages', JSON.stringify(Array.from(heartedImages)));
+        }
+        
+        function toggleHeart(relativePath, element) {
+            if (heartedImages.has(relativePath)) {
+                heartedImages.delete(relativePath);
+            } else {
+                heartedImages.add(relativePath);
+            }
+            saveHearts();
+            if (element) {
+                element.classList.toggle('hearted', heartedImages.has(relativePath));
+            }
+            updateHeartButton();
+            if (showOnlyHearted) {
+                filterByHearts();
+            }
+        }
+        
+        function updateHeartButton() {
+            const heartBtn = document.getElementById('heartBtn');
+            if (heartBtn && currentModalMedia) {
+                heartBtn.classList.toggle('hearted', heartedImages.has(currentModalMedia.relativePath));
+            }
+        }
+        
+        function toggleHeartFilter() {
+            showOnlyHearted = !showOnlyHearted;
+            const btn = document.getElementById('filterHeartsBtn');
+            if (showOnlyHearted) {
+                btn.style.background = '#e74c3c';
+                btn.style.color = '#fff';
+                btn.querySelector('svg').style.fill = '#fff';
+            } else {
+                btn.style.background = '';
+                btn.style.color = '';
+                btn.querySelector('svg').style.fill = '';
+            }
+            filterByHearts();
+        }
+        
+        function filterByHearts() {
+            document.querySelectorAll('.gallery-section').forEach(section => {
+                const items = section.querySelectorAll('.gallery-item');
+                let visibleCount = 0;
+                items.forEach(item => {
+                    const relativePath = item.dataset.relativePath;
+                    if (showOnlyHearted) {
+                        if (heartedImages.has(relativePath)) {
+                            item.style.display = '';
+                            visibleCount++;
+                        } else {
+                            item.style.display = 'none';
+                        }
+                    } else {
+                        item.style.display = '';
+                        visibleCount++;
+                    }
+                });
+                section.style.display = visibleCount > 0 ? '' : 'none';
+            });
+        }
         
         async function loadGallery() {
+            loadHearts();
             const response = await fetch('/api/gallery');
             const data = await response.json();
             document.getElementById('gallery-info').textContent = 'Found ' + data.totalImages + ' media files';
@@ -1073,6 +1183,14 @@ async function generateIndexHTML() {
                 media.forEach(item => {
                     const galleryItem = document.createElement('div');
                     galleryItem.className = 'gallery-item';
+                    galleryItem.dataset.relativePath = item.relativePath;
+                    
+                    const heartBtn = document.createElement('button');
+                    heartBtn.className = 'heart-btn';
+                    if (heartedImages.has(item.relativePath)) heartBtn.classList.add('hearted');
+                    heartBtn.innerHTML = '<svg viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path></svg>';
+                    heartBtn.onclick = (e) => { e.stopPropagation(); toggleHeart(item.relativePath, heartBtn); };
+                    galleryItem.appendChild(heartBtn);
                     
                     const loader = document.createElement('div');
                     loader.className = 'loader';
@@ -1189,6 +1307,7 @@ async function generateIndexHTML() {
         }
         
         function openModal(media) {
+            currentModalMedia = media;
             if (media.type === 'video') {
                 modalImg.style.display = 'none';
                 modalVideo.style.display = 'block';
@@ -1204,6 +1323,7 @@ async function generateIndexHTML() {
                 resetZoom();
             }
             modal.classList.add('active');
+            updateHeartButton();
         }
         
         function closeModal() {
@@ -1226,6 +1346,16 @@ async function generateIndexHTML() {
         document.getElementById('zoomIn').onclick = () => zoom(0.2);
         document.getElementById('zoomOut').onclick = () => zoom(-0.2);
         document.getElementById('resetZoom').onclick = resetZoom;
+        document.getElementById('heartBtn').onclick = () => {
+            if (currentModalMedia) {
+                toggleHeart(currentModalMedia.relativePath, document.getElementById('heartBtn'));
+                const cached = thumbnailCache.get(currentModalMedia.relativePath);
+                if (cached) {
+                    const heartBtn = cached.element.querySelector('.heart-btn');
+                    if (heartBtn) heartBtn.classList.toggle('hearted', heartedImages.has(currentModalMedia.relativePath));
+                }
+            }
+        };
         modalImg.addEventListener('wheel', (e) => { e.preventDefault(); zoom(e.deltaY > 0 ? -0.1 : 0.1); });
         modalImg.addEventListener('mousedown', (e) => { if (scale > 1) { isDragging = true; lastX = e.clientX; lastY = e.clientY; e.preventDefault(); } });
         document.addEventListener('mousemove', (e) => { if (isDragging) { translateX += e.clientX - lastX; translateY += e.clientY - lastY; lastX = e.clientX; lastY = e.clientY; zoom(0); } });
