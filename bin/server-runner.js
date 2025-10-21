@@ -111,14 +111,7 @@ async function findAvailablePort(startPort) {
 }
 
 function broadcastProgress() {
-    const data = JSON.stringify(scanningState);
-    sseClients.forEach(client => {
-        try {
-            client.write(`data: ${data}\n\n`);
-        } catch (error) {
-            sseClients.delete(client);
-        }
-    });
+    broadcastToClients(scanningState);
 }
 
 async function scanDirectory(dir, isRoot = false) {
@@ -253,6 +246,35 @@ async function hasThumbnail(media) {
     }
 }
 
+// Broadcast data to SSE clients with robust error handling
+function broadcastToClients(data) {
+    const clientsToRemove = [];
+    
+    sseClients.forEach(client => {
+        try {
+            // Check if client is still writable
+            if (client.destroyed || client.writableEnded) {
+                clientsToRemove.push(client);
+                return;
+            }
+            
+            client.write(`data: ${JSON.stringify(data)}\n\n`);
+        } catch (error) {
+            console.warn('SSE client write error:', error.message);
+            clientsToRemove.push(client);
+        }
+    });
+    
+    // Clean up disconnected clients
+    clientsToRemove.forEach(client => {
+        sseClients.delete(client);
+    });
+    
+    if (clientsToRemove.length > 0) {
+        console.log(`🧹 Cleaned up ${clientsToRemove.length} disconnected SSE clients`);
+    }
+}
+
 // Broadcast thumbnail progress to clients
 function broadcastThumbnailProgress(media, status, progress = 0) {
     const updateData = {
@@ -265,13 +287,7 @@ function broadcastThumbnailProgress(media, status, progress = 0) {
         progress // 0-100
     };
     
-    sseClients.forEach(client => {
-        try {
-            client.write(`data: ${JSON.stringify(updateData)}\n\n`);
-        } catch (error) {
-            sseClients.delete(client);
-        }
-    });
+    broadcastToClients(updateData);
 }
 
 // Generate tiny preview (64x64) for instant feedback
@@ -341,13 +357,7 @@ async function generateThumbnailWithProgress(media) {
                 }
             };
             
-            sseClients.forEach(client => {
-                try {
-                    client.write(`data: ${JSON.stringify(previewData)}\n\n`);
-                } catch (error) {
-                    sseClients.delete(client);
-                }
-            });
+            broadcastToClients(previewData);
         }
         
         try {
@@ -399,13 +409,7 @@ async function generateThumbnailWithProgress(media) {
                 }
             };
             
-            sseClients.forEach(client => {
-                try {
-                    client.write(`data: ${JSON.stringify(completionData)}\n\n`);
-                } catch (error) {
-                    sseClients.delete(client);
-                }
-            });
+            broadcastToClients(completionData);
             
             broadcastThumbnailProgress(media, 'complete', 100);
             return thumbnailUrl;
@@ -429,12 +433,10 @@ function invalidateCache(reason = 'File system change') {
         cacheInvalidated: true,
         reason 
     });
-    sseClients.forEach(client => {
-        try {
-            client.write(`data: ${data}\n\n`);
-        } catch (error) {
-            sseClients.delete(client);
-        }
+    broadcastToClients({ 
+        ...scanningState,
+        cacheInvalidated: true,
+        reason 
     });
 }
 
@@ -604,28 +606,60 @@ async function getCachedGalleryData() {
 // Generate thumbnails in background with progress updates
 async function generateThumbnailsInBackground(pendingImages) {
     const batchSize = 3; // Process 3 thumbnails concurrently
+    let processedCount = 0;
+    let errorCount = 0;
+    
+    console.log(`🔄 Processing ${pendingImages.length} thumbnails in batches of ${batchSize}...`);
     
     for (let i = 0; i < pendingImages.length; i += batchSize) {
         const batch = pendingImages.slice(i, i + batchSize);
+        const batchNumber = Math.floor(i / batchSize) + 1;
+        const totalBatches = Math.ceil(pendingImages.length / batchSize);
         
-        // Process batch concurrently
-        const promises = batch.map(async (image) => {
+        console.log(`🖼️  Processing batch ${batchNumber}/${totalBatches} (${batch.length} images)`);
+        
+        // Process batch concurrently with individual error handling
+        const promises = batch.map(async (image, index) => {
             try {
                 await generateThumbnailWithProgress(image);
+                processedCount++;
+                console.log(`✓ [${processedCount}/${pendingImages.length}] ${image.name}`);
+                return { success: true, image };
             } catch (error) {
-                console.warn(`Failed to generate thumbnail for ${image.name}:`, error.message);
+                errorCount++;
+                console.warn(`✗ [${processedCount + errorCount}/${pendingImages.length}] Failed: ${image.name} - ${error.message}`);
+                
+                // Broadcast error state
+                broadcastThumbnailProgress(image, 'error', 0);
+                return { success: false, image, error };
             }
         });
         
-        await Promise.all(promises);
+        try {
+            const results = await Promise.all(promises);
+            
+            // Log batch completion
+            const successCount = results.filter(r => r.success).length;
+            const batchErrorCount = results.filter(r => !r.success).length;
+            console.log(`📊 Batch ${batchNumber} complete: ${successCount} success, ${batchErrorCount} errors`);
+            
+        } catch (error) {
+            console.error(`❗ Batch ${batchNumber} failed completely:`, error.message);
+            errorCount += batch.length;
+        }
         
         // Small delay between batches to avoid overwhelming the system
         if (i + batchSize < pendingImages.length) {
-            await new Promise(resolve => setTimeout(resolve, 100));
+            await new Promise(resolve => setTimeout(resolve, 200)); // Increased delay slightly
         }
     }
     
+    const totalProcessed = processedCount + errorCount;
     console.log(`✅ Background thumbnail generation completed`);
+    console.log(`📊 Final stats: ${processedCount} success, ${errorCount} errors, ${totalProcessed}/${pendingImages.length} processed`);
+    
+    // Clean up any stale SSE connections
+    console.log(`🌐 Active SSE connections: ${sseClients.size}`);
 }
 
 // Write PID file for process management
@@ -694,7 +728,30 @@ async function setupServer() {
             lastScan: galleryCache.lastScan,
             isStale: galleryCache.isStale,
             cacheDuration: CACHE_DURATION,
-            age: galleryCache.lastScan ? Date.now() - galleryCache.lastScan : null
+            age: galleryCache.lastScan ? Date.now() - galleryCache.lastScan : null,
+            sseClients: sseClients.size
+        });
+    });
+    
+    // Debug endpoint to check server status
+    app.get('/api/debug', (req, res) => {
+        res.json({
+            serverStatus: 'running',
+            scanningState,
+            galleryCache: {
+                hasData: !!galleryCache.data,
+                lastScan: galleryCache.lastScan,
+                isStale: galleryCache.isStale,
+                pendingThumbnails: galleryCache.data?.pendingThumbnails || 0
+            },
+            connections: {
+                sseClients: sseClients.size
+            },
+            process: {
+                pid: process.pid,
+                uptime: process.uptime(),
+                memoryUsage: process.memoryUsage()
+            }
         });
     });
     
