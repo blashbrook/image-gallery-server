@@ -274,6 +274,48 @@ function broadcastThumbnailProgress(media, status, progress = 0) {
     });
 }
 
+// Generate tiny preview (64x64) for instant feedback
+async function generateTinyPreview(media) {
+    const previewName = `${Buffer.from(media.relativePath).toString('base64')}_tiny.jpg`;
+    const previewPath = path.join(THUMBNAILS_DIR, previewName);
+    
+    try {
+        if (media.type === 'image') {
+            await sharp(media.path)
+                .resize(64, 64, { 
+                    fit: 'cover',
+                    position: 'center'
+                })
+                .jpeg({ quality: 60 })
+                .toFile(previewPath);
+        } else {
+            // Simple tiny video placeholder
+            await sharp({
+                create: {
+                    width: 64,
+                    height: 64,
+                    channels: 3,
+                    background: { r: 52, g: 73, b: 94 }
+                }
+            })
+            .composite([{
+                input: Buffer.from(`<svg width="20" height="20" xmlns="http://www.w3.org/2000/svg">
+                    <circle cx="10" cy="10" r="8" fill="white" opacity="0.8"/>
+                    <polygon points="7,6 7,14 15,10" fill="#2c3e50"/>
+                </svg>`),
+                left: 22,
+                top: 22
+            }])
+            .jpeg({ quality: 60 })
+            .toFile(previewPath);
+        }
+        return `/static/thumbnails/${previewName}`;
+    } catch (error) {
+        console.warn(`Failed to generate tiny preview for ${media.path}:`, error.message);
+        return null;
+    }
+}
+
 // Generate thumbnail with progress updates
 async function generateThumbnailWithProgress(media) {
     const thumbnailName = `${Buffer.from(media.relativePath).toString('base64')}.jpg`;
@@ -286,6 +328,27 @@ async function generateThumbnailWithProgress(media) {
     } catch {
         // Thumbnail doesn't exist, generate it with progress
         broadcastThumbnailProgress(media, 'starting', 0);
+        
+        // First, generate a tiny preview for instant feedback
+        const tinyPreview = await generateTinyPreview(media);
+        if (tinyPreview) {
+            const previewData = {
+                type: 'tiny_preview_ready',
+                media: {
+                    ...media,
+                    tinyPreview,
+                    url: `/image/${encodeURIComponent(media.relativePath)}`
+                }
+            };
+            
+            sseClients.forEach(client => {
+                try {
+                    client.write(`data: ${JSON.stringify(previewData)}\n\n`);
+                } catch (error) {
+                    sseClients.delete(client);
+                }
+            });
+        }
         
         try {
             broadcastThumbnailProgress(media, 'processing', 25);
@@ -522,8 +585,17 @@ async function getCachedGalleryData() {
     if (pendingThumbnails.length > 0) {
         console.log(`🖼️  Starting background generation of ${pendingThumbnails.length} thumbnails...`);
         
+        // Sort by directory and filename for consistent visual order (top-left to bottom-right)
+        const sortedThumbnails = pendingThumbnails.sort((a, b) => {
+            // First sort by directory
+            const dirCompare = a.directory.localeCompare(b.directory);
+            if (dirCompare !== 0) return dirCompare;
+            // Then sort by filename within directory
+            return a.name.localeCompare(b.name);
+        });
+        
         // Don't await this - let it run in background
-        generateThumbnailsInBackground(pendingThumbnails);
+        generateThumbnailsInBackground(sortedThumbnails);
     }
     
     return result;

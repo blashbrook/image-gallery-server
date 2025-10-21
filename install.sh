@@ -213,20 +213,20 @@ restart_shell() {
     # Detect if we're in a modern terminal that shouldn't be restarted
     local skip_restart=false
     
-    # Check for Warp terminal
-    if [ -n "$WARP_TERMINAL" ] || [ "$TERM_PROGRAM" = "WarpTerminal" ]; then
+    # Check for Warp terminal (multiple possible indicators)
+    if [ "${WARP_TERMINAL:-}" ] || [ "${TERM_PROGRAM:-}" = "WarpTerminal" ] || [ "${TERM_PROGRAM:-}" = "Warp" ] || [ -n "${WARP_IS_LOCAL_SHELL_SESSION:-}" ]; then
         info "Warp terminal detected - PATH will be updated on next command"
         skip_restart=true
     # Check for VSCode integrated terminal
-    elif [ -n "$VSCODE_INJECTION" ] || [ "$TERM_PROGRAM" = "vscode" ]; then
+    elif [ "${VSCODE_INJECTION:-}" ] || [ "${TERM_PROGRAM:-}" = "vscode" ]; then
         info "VSCode terminal detected - PATH will be updated automatically"
         skip_restart=true
     # Check for other modern terminals
-    elif [ "$TERM_PROGRAM" = "iTerm.app" ] || [ "$TERM_PROGRAM" = "Apple_Terminal" ]; then
+    elif [ "${TERM_PROGRAM:-}" = "iTerm.app" ] || [ "${TERM_PROGRAM:-}" = "Apple_Terminal" ]; then
         info "Modern terminal detected - recommending manual refresh"
         skip_restart=true
     # Check if we're in tmux or screen
-    elif [ -n "$TMUX" ] || [ -n "$STY" ]; then
+    elif [ "${TMUX:-}" ] || [ "${STY:-}" ]; then
         info "Terminal multiplexer detected - PATH will update on next shell"
         skip_restart=true
     fi

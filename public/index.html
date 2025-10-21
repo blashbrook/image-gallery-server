@@ -395,6 +395,30 @@
         .media-container {
             position: relative;
         }
+        
+        .image-card.tiny-preview-loaded .image-thumbnail {
+            filter: blur(1px) brightness(1.1);
+            transition: filter 0.3s ease;
+        }
+        
+        .image-card.thumbnail-loaded .image-thumbnail {
+            filter: none;
+        }
+        
+        @keyframes tinyPreviewLoad {
+            0% {
+                opacity: 0.5;
+                filter: blur(2px);
+            }
+            100% {
+                opacity: 1;
+                filter: blur(1px);
+            }
+        }
+        
+        .image-card.tiny-preview-loaded {
+            animation: tinyPreviewLoad 0.5s ease-out;
+        }
 
         .image-thumbnail {
             width: 100%;
@@ -829,6 +853,9 @@
                     if (data.type === 'thumbnail_ready') {
                         // Handle thumbnail completion
                         this.updateThumbnail(data.media);
+                    } else if (data.type === 'tiny_preview_ready') {
+                        // Handle tiny preview ready
+                        this.updateTinyPreview(data.media);
                     } else if (data.type === 'thumbnail_progress') {
                         // Handle individual thumbnail progress
                         this.updateThumbnailProgress(data.media, data.status, data.progress);
@@ -1141,6 +1168,29 @@
                         setTimeout(() => {
                             card.style.animation = '';
                         }, 300);
+                    }
+                }
+            }
+            
+            // Update tiny preview when ready
+            updateTinyPreview(media) {
+                const card = document.querySelector(`[data-relative-path="${CSS.escape(media.relativePath)}"]`);
+                if (card) {
+                    const thumbnail = card.querySelector('.image-thumbnail');
+                    const progressBar = card.querySelector('.thumbnail-progress');
+                    
+                    if (thumbnail) {
+                        // Replace placeholder with tiny preview
+                        thumbnail.src = media.tinyPreview;
+                        card.classList.add('tiny-preview-loaded');
+                        
+                        // Update progress bar to show preview loaded
+                        if (progressBar) {
+                            const progressText = progressBar.querySelector('.progress-text');
+                            if (progressText) {
+                                progressText.textContent = 'Preview loaded...';
+                            }
+                        }
                     }
                 }
             }

@@ -229,69 +229,26 @@ async function launchBackgroundServer(scanDir, port, openBrowser = true) {
     
     const serverRunnerPath = path.join(PACKAGE_DIR, 'bin', 'server-runner.js');
     
-    // Spawn detached child process
+    // Spawn fully detached child process
     const child = spawn('node', [serverRunnerPath, JSON.stringify(config)], {
         detached: true,
-        stdio: ['ignore', 'pipe', 'pipe'],
+        stdio: ['ignore', 'ignore', 'ignore'], // Fully detach all stdio
         cwd: process.cwd()
     });
     
     // Let the process run independently
     child.unref();
     
+    // Give the process a moment to start, then resolve
     return new Promise((resolve, reject) => {
-        let output = '';
-        let hasStarted = false;
-        let outputTimeout;
-        
-        const cleanup = () => {
-            if (outputTimeout) clearTimeout(outputTimeout);
-            // Stop listening to prevent keeping the parent process alive
-            child.stdout.removeAllListeners();
-            child.stderr.removeAllListeners();
-            child.removeAllListeners();
-        };
-        
-        child.stdout.on('data', (data) => {
-            output += data.toString();
-            
-            // Look for server started message
-            if (output.includes('Gallery server started') && !hasStarted) {
-                hasStarted = true;
-                console.log(output.trim());
-                cleanup();
-                resolve({ pid: child.pid });
-            }
-        });
-        
-        child.stderr.on('data', (data) => {
-            const errorOutput = data.toString();
-            // Only show critical errors, not warnings
-            if (errorOutput.includes('Error:') || errorOutput.includes('Failed:')) {
-                console.error(errorOutput);
-            }
-        });
-        
         child.on('error', (error) => {
-            cleanup();
             reject(error);
         });
         
-        child.on('exit', (code) => {
-            cleanup();
-            if (code !== 0 && !hasStarted) {
-                reject(new Error(`Server failed to start with code ${code}`));
-            }
-        });
-        
-        // Timeout if server doesn't start within 5 seconds (reduced timeout)
-        outputTimeout = setTimeout(() => {
-            if (!hasStarted) {
-                cleanup();
-                child.kill();
-                reject(new Error('Server startup timeout'));
-            }
-        }, 5000);
+        // Simple delay to let process start
+        setTimeout(() => {
+            resolve({ pid: child.pid });
+        }, 1000);
     });
 }
 
@@ -474,7 +431,8 @@ program
             }
             
             const result = await launchBackgroundServer(scanDir, port, openBrowser);
-            console.log('✅ Gallery server started in background');
+            console.log(`✅ Gallery server starting in background (PID: ${result.pid})`);
+            console.log(`🌐 Server will be available at: http://localhost:${port}`);
             console.log('💡 Use "gallery stop" to stop the server');
             
             // Exit the CLI process to return control to the terminal
