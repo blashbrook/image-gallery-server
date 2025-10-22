@@ -2,15 +2,23 @@
   "name": "image-gallery-server",
   "version": "1.0.0",
   "description": "A lightweight web server that creates dynamic galleries from image directories",
-  "main": "server.js",
+  "main": "main.js",
   "bin": {
     "gallery": "./bin/gallery.js"
   },
   "scripts": {
     "start": "node server.js",
-    "dev": "node --watch server.js"
+    "dev": "node --watch server.js",
+    "electron": "electron .",
+    "electron:dev": "electron . --enable-logging",
+    "build": "electron-builder",
+    "build:mac": "electron-builder --mac",
+    "build:win": "electron-builder --win",
+    "build:linux": "electron-builder --linux",
+    "build:all": "electron-builder -mwl",
+    "pack": "electron-builder --dir"
   },
-  "keywords": ["gallery", "images", "web-server", "express", "cli"],
+  "keywords": ["gallery", "images", "web-server", "express", "cli", "electron", "desktop"],
   "author": "",
   "license": "MIT",
   "dependencies": {
@@ -21,13 +29,64 @@
     "open": "^10.1.0",
     "chokidar": "^3.5.3"
   },
+  "devDependencies": {
+    "electron": "^28.1.0",
+    "electron-builder": "^24.9.1"
+  },
   "engines": {
     "node": ">=18.0.0"
   },
   "files": [
     "bin/",
     "public/",
+    "static/",
+    "main.js",
+    "preload.js",
     "server.js",
     "metadata.js"
-  ]
+  ],
+  "build": {
+    "appId": "com.imagegallery.app",
+    "productName": "Image Gallery",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "server.js",
+      "metadata.js",
+      "public/**/*",
+      "static/.gitkeep",
+      "node_modules/**/*"
+    ],
+    "mac": {
+      "category": "public.app-category.productivity",
+      "target": [
+        "dmg",
+        "zip"
+      ],
+      "icon": "build/icon.icns"
+    },
+    "win": {
+      "target": [
+        "nsis",
+        "portable"
+      ],
+      "icon": "build/icon.ico"
+    },
+    "linux": {
+      "target": [
+        "AppImage",
+        "deb",
+        "rpm"
+      ],
+      "category": "Graphics",
+      "icon": "build/icon.png"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
+    }
+  }
 }

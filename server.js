@@ -13,9 +13,17 @@ const app = express();
 let PORT = process.env.PORT || 3000;
 
 // Get the directory to scan from command line args or use parent directory
-const SCAN_DIR = process.argv[2] || path.dirname(process.cwd());
-const METADATA_DIR = path.join(__dirname, 'metadata');
-const THUMBNAILS_DIR = path.join(__dirname, 'static', 'thumbnails');
+const SCAN_DIR = process.argv[2] || process.env.GALLERY_DIR || path.dirname(process.cwd());
+
+// In Electron mode, store cache in the selected directory
+// Otherwise, store in the app directory
+const isElectronMode = process.env.ELECTRON_MODE === 'true';
+const CACHE_BASE_DIR = isElectronMode ? path.join(SCAN_DIR, '.gallery_cache') : __dirname;
+
+const METADATA_DIR = isElectronMode ? path.join(CACHE_BASE_DIR, 'metadata') : path.join(__dirname, 'metadata');
+const THUMBNAILS_DIR = isElectronMode ? path.join(CACHE_BASE_DIR, 'thumbnails') : path.join(__dirname, 'static', 'thumbnails');
+const GALLERY_CACHE_DIR = isElectronMode ? CACHE_BASE_DIR : path.join(__dirname, 'cache');
+const GENERATED_HTML_FILE = path.join(__dirname, 'public', 'generated-gallery.html');
 
 // Supported media extensions
 const IMAGE_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp', '.tiff', '.svg'];
@@ -25,8 +33,21 @@ const VIDEO_EXTENSIONS = ['.mp4', '.mov', '.avi', '.mkv', '.webm', '.ogg', '.m4v
 async function ensureDirectories() {
     await fs.mkdir(METADATA_DIR, { recursive: true });
     await fs.mkdir(THUMBNAILS_DIR, { recursive: true });
-    await fs.mkdir(path.join(__dirname, 'static'), { recursive: true });
     await fs.mkdir(GALLERY_CACHE_DIR, { recursive: true });
+    
+    if (isElectronMode) {
+        console.log(`📦 Cache directory: ${CACHE_BASE_DIR}`);
+        console.log(`🖼️  Thumbnails: ${THUMBNAILS_DIR}`);
+        console.log(`📋 Metadata: ${METADATA_DIR}`);
+    }
+    
+    // Always ensure public directory exists in app directory
+    await fs.mkdir(path.join(__dirname, 'public'), { recursive: true });
+    
+    // Ensure static directory exists if not in Electron mode
+    if (!isElectronMode) {
+        await fs.mkdir(path.join(__dirname, 'static'), { recursive: true });
+    }
 }
 
 // Check if file is an image
@@ -48,8 +69,10 @@ function isMedia(filename) {
 
 // Check if a file is likely a generated thumbnail
 function isLikelyThumbnail(filePath, filename) {
-    // Skip files in static/thumbnails or metadata directories
-    if (filePath.includes('static' + path.sep + 'thumbnails') || filePath.includes('metadata')) {
+    // Skip files in static/thumbnails, metadata, or .gallery_cache directories
+    if (filePath.includes('static' + path.sep + 'thumbnails') || 
+        filePath.includes('metadata') || 
+        filePath.includes('.gallery_cache')) {
         return true;
     }
     
@@ -666,7 +689,24 @@ async function generateImageThumbnail(imagePath, thumbnailPath) {
     }
 }
 
-// Generate low-resolution thumbnail for lazy loading
+// Generate low-resolution thumbnail for images
+async function generateLowResThumbnail(imagePath, thumbnailPath) {
+    try {
+        await sharp(imagePath)
+            .resize(150, 150, { 
+                fit: 'cover',
+                position: 'center'
+            })
+            .jpeg({ quality: 40, progressive: true })
+            .toFile(thumbnailPath);
+        return true;
+    } catch (error) {
+        console.warn(`Failed to generate low-res thumbnail for ${imagePath}:`, error.message);
+        return false;
+    }
+}
+
+// Generate low-resolution thumbnail for videos
 async function generateLowResVideoThumbnail(videoPath, thumbnailPath) {
     try {
         // Extract a frame and resize to low-res
@@ -775,7 +815,13 @@ async function getThumbnail(media, resolution = 'high') {
 }
 
 // Serve static files
-app.use('/static', express.static('static'));
+if (isElectronMode) {
+    // In Electron mode, serve thumbnails from the cache directory in the gallery folder
+    app.use('/static/thumbnails', express.static(THUMBNAILS_DIR));
+} else {
+    // In standalone mode, serve from the app directory
+    app.use('/static', express.static('static'));
+}
 app.use('/public', express.static('public'));
 
 // Global scanning state
@@ -933,11 +979,24 @@ async function startServer() {
     // Find an available port
     PORT = await findAvailablePort(PORT);
     
+    const isElectron = process.env.ELECTRON_MODE === 'true';
+    
     app.listen(PORT, () => {
-        console.log(`🖼️  Image Gallery Server running on http://localhost:${PORT}`);
-        console.log(`📁 Scanning directory: ${SCAN_DIR}`);
-        console.log(`💡 To scan a different directory, run: node server.js /path/to/images`);
+        if (isElectron) {
+            console.log(`🖼️  Image Gallery Server running on port ${PORT}`);
+            console.log(`📁 Scanning directory: ${SCAN_DIR}`);
+        } else {
+            console.log(`🖼️  Image Gallery Server running on http://localhost:${PORT}`);
+            console.log(`📁 Scanning directory: ${SCAN_DIR}`);
+            console.log(`💡 To scan a different directory, run: node server.js /path/to/images`);
+        }
     });
 }
 
-startServer().catch(console.error);
+// Only auto-start if not in Electron mode (Electron will start the server)
+if (require.main === module) {
+    startServer().catch(console.error);
+}
+
+// Export for Electron to use
+module.exports = { startServer };
