@@ -603,9 +603,35 @@ async function scanDirectory(dir, isRoot = false) {
     return images;
 }
 
-// Extract frame from video using FFmpeg
-async function extractVideoFrame(videoPath, outputPath, timeSeconds = 1) {
+// Get video duration using FFmpeg
+async function getVideoDuration(videoPath) {
     try {
+        const { stdout } = await execFileAsync('ffprobe', [
+            '-v', 'error',
+            '-show_entries', 'format=duration',
+            '-of', 'default=noprint_wrappers=1:nokey=1',
+            videoPath
+        ]);
+        return parseFloat(stdout.trim());
+    } catch (error) {
+        console.error(`Failed to get duration for ${videoPath}:`, error.message);
+        return null;
+    }
+}
+
+// Extract frame from video using FFmpeg
+async function extractVideoFrame(videoPath, outputPath, timeSeconds = null) {
+    try {
+        // If no time specified, use 1/3 of video duration
+        if (timeSeconds === null) {
+            const duration = await getVideoDuration(videoPath);
+            if (duration) {
+                timeSeconds = duration / 3;
+            } else {
+                timeSeconds = 5; // Fallback if duration cannot be determined
+            }
+        }
+        
         await execFileAsync('ffmpeg', [
             '-ss', timeSeconds.toString(),
             '-i', videoPath,
@@ -617,7 +643,8 @@ async function extractVideoFrame(videoPath, outputPath, timeSeconds = 1) {
         ]);
         return true;
     } catch (error) {
-        console.warn(`Failed to extract frame from ${videoPath}:`, error.message);
+        console.error(`Failed to extract frame from ${videoPath} at ${timeSeconds}s:`, error.message);
+        console.error('FFmpeg stderr:', error.stderr || 'N/A');
         return false;
     }
 }
