@@ -163,6 +163,26 @@ verify_installation() {
         echo "  gallery cleanup               # Clean up orphaned thumbnails"
         echo "  gallery delete                # Clean up all cache files"
         echo ""
+        echo "📸 Video Thumbnail Support (Optional):"
+        echo "  FFmpeg is optional but recommended for real video frame extraction."
+        echo ""
+        if command_exists ffmpeg; then
+            success "FFmpeg is already installed ✓"
+            echo "  Videos will have real thumbnail frames extracted."
+        else
+            warning "FFmpeg is not installed"
+            echo "  Install FFmpeg to enable real video thumbnails from frame extraction:"
+            if [[ "$OSTYPE" == "darwin"* ]]; then
+                echo "    brew install ffmpeg"
+            elif [[ "$OSTYPE" == "linux-gnu"* ]]; then
+                echo "    Ubuntu/Debian: sudo apt-get install ffmpeg"
+                echo "    CentOS/RHEL:   sudo yum install ffmpeg"
+            fi
+            echo ""
+            echo "  Without FFmpeg: Gallery will display generic play button thumbnails."
+            echo "  Either way: Gallery works great! (FFmpeg is optional)"
+        fi
+        echo ""
         
         # Test basic functionality - just check if the file exists and is executable
         if [ -x "$INSTALL_DIR/bin/gallery.js" ]; then

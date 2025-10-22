@@ -47,15 +47,22 @@ Simply run `gallery up` in any folder with media files, and it will automaticall
 - **Build tools**: `build-essential` (Ubuntu/Debian) or `gcc-c++` (CentOS/RHEL)
 - **Python**: 3.6+ (for Sharp native compilation)
 - **Additional packages**: May need `libvips-dev` for Sharp optimization
+- **FFmpeg** (Optional): For real video thumbnails from frame extraction
+  - Install: `sudo apt-get install ffmpeg` (Ubuntu/Debian) or `sudo yum install ffmpeg` (CentOS/RHEL)
 
 #### **macOS:**
 - **Xcode Command Line Tools**: Required for Sharp compilation
 - Install with: `xcode-select --install`
+- **FFmpeg** (Optional): For real video thumbnails from frame extraction
+  - Install: `brew install ffmpeg`
 
 #### **Windows:**
 - **Visual Studio Build Tools** or **Visual Studio 2019+**
 - **Python**: 3.6+ (Microsoft Store version recommended)
 - **PowerShell**: 3.0+ (Windows 10+ includes 5.1+)
+- **FFmpeg** (Optional): For real video thumbnails from frame extraction
+  - Download from: https://ffmpeg.org/download.html
+  - Or install via: `choco install ffmpeg` (if using Chocolatey)
 
 ### **Supported Image Formats:**
 - **Images**: JPEG, PNG, GIF, BMP, WebP, TIFF, SVG
@@ -83,6 +90,17 @@ Simply run `gallery up` in any folder with media files, and it will automaticall
 - **Memory Usage**: ~100-200MB base + ~1-2MB per 1000 images
 - **CPU Usage**: Moderate during initial thumbnail generation, minimal during serving
 - **Progressive Loading**: Server-Sent Events (SSE) for real-time thumbnail updates
+
+### **Video Thumbnail Handling:**
+- **With FFmpeg installed**: Real frame extraction from videos
+  - Extracts frame at 1-second mark from each video
+  - Creates accurate video thumbnails showing actual content
+  - Maintains aspect ratio with black padding
+- **Without FFmpeg**: Graceful fallback to placeholder thumbnails
+  - Video thumbnails display generic play button icon
+  - Gallery remains fully functional
+  - Video playback still works normally
+  - No error messages or logging; seamless experience
 
 ### **Network Requirements:**
 - **Local Network**: Gallery accessible on local network by default

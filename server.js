@@ -5,6 +5,9 @@ const fs = require('fs').promises;
 const path = require('path');
 const sharp = require('sharp');
 const net = require('net');
+const { execFile } = require('child_process');
+const util = require('util');
+const execFileAsync = util.promisify(execFile);
 
 const app = express();
 let PORT = process.env.PORT || 3000;
@@ -600,6 +603,25 @@ async function scanDirectory(dir, isRoot = false) {
     return images;
 }
 
+// Extract frame from video using FFmpeg
+async function extractVideoFrame(videoPath, outputPath, timeSeconds = 1) {
+    try {
+        await execFileAsync('ffmpeg', [
+            '-ss', timeSeconds.toString(),
+            '-i', videoPath,
+            '-vf', 'scale=300:300:force_original_aspect_ratio=decrease,pad=300:300:(ow-iw)/2:(oh-ih)/2:color=black',
+            '-vframes', '1',
+            '-f', 'image2',
+            '-y',
+            outputPath
+        ]);
+        return true;
+    } catch (error) {
+        console.warn(`Failed to extract frame from ${videoPath}:`, error.message);
+        return false;
+    }
+}
+
 // Generate thumbnail for images (preserving aspect ratio)
 async function generateImageThumbnail(imagePath, thumbnailPath) {
     try {
@@ -617,15 +639,59 @@ async function generateImageThumbnail(imagePath, thumbnailPath) {
     }
 }
 
+// Generate low-resolution thumbnail for lazy loading
+async function generateLowResVideoThumbnail(videoPath, thumbnailPath) {
+    try {
+        // Extract a frame and resize to low-res
+        const tempFramePath = thumbnailPath.replace('.jpg', '_temp.jpg');
+        const frameExtracted = await extractVideoFrame(videoPath, tempFramePath);
+        
+        if (frameExtracted) {
+            await sharp(tempFramePath)
+                .resize(150, 150, { fit: 'cover', position: 'center' })
+                .jpeg({ quality: 40, progressive: true })
+                .toFile(thumbnailPath);
+            
+            // Clean up temp file
+            try {
+                await fs.unlink(tempFramePath);
+            } catch (e) {
+                // Ignore cleanup errors
+            }
+            return true;
+        }
+        return false;
+    } catch (error) {
+        console.warn(`Failed to generate low-res video thumbnail for ${videoPath}:`, error.message);
+        return false;
+    }
+}
+
 // Generate thumbnail (for both images and videos)
 async function generateThumbnail(mediaPath, thumbnailPath, mediaType) {
     if (mediaType === 'image') {
         return await generateImageThumbnail(mediaPath, thumbnailPath);
     } else if (mediaType === 'video') {
-        // For videos, create a simple placeholder thumbnail
-        // In a production environment, you might use ffmpeg to extract a frame
         try {
-            // Create a simple video placeholder using Sharp
+            // Try to extract a frame from the video using FFmpeg
+            const frameExtracted = await extractVideoFrame(mediaPath, thumbnailPath);
+            
+            if (frameExtracted) {
+                // Optimize the extracted frame with Sharp
+                try {
+                    await sharp(thumbnailPath)
+                        .resize(300, 300, { fit: 'inside', withoutEnlargement: true })
+                        .jpeg({ quality: 80 })
+                        .toFile(thumbnailPath);
+                } catch (error) {
+                    // If optimization fails, use the extracted frame as-is
+                    console.warn(`Failed to optimize video frame, using as-is:`, error.message);
+                }
+                return true;
+            }
+            
+            // Fallback: create a simple placeholder if FFmpeg fails
+            console.warn(`FFmpeg extraction failed for ${mediaPath}, using placeholder`);
             await sharp({
                 create: {
                     width: 300,
@@ -665,7 +731,15 @@ async function getThumbnail(media, resolution = 'high') {
         return `/static/thumbnails/${thumbnailName}`;
     } catch {
         // Thumbnail doesn't exist, create it
-        const generator = resolution === 'low' ? generateLowResThumbnail : generateThumbnail;
+        let generator;
+        if (resolution === 'low') {
+            // For low-res, use video-specific generator if video, otherwise use image generator
+            generator = media.type === 'video' ? generateLowResVideoThumbnail : generateLowResThumbnail;
+        } else {
+            // For high-res, use general thumbnail generator
+            generator = generateThumbnail;
+        }
+        
         if (await generator(media.path, thumbnailPath, media.type)) {
             return `/static/thumbnails/${thumbnailName}`;
         }
