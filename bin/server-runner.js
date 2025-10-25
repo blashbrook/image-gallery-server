@@ -924,7 +924,8 @@ async function generateIndexHTML() {
             position: relative;
             background: var(--bg-primary);
         }
-        .gallery-item:hover { transform: translateY(-5px); box-shadow: 0 8px 20px rgba(0,0,0,0.15); }
+        .gallery-item:hover:not(.loading) { transform: translateY(-5px); box-shadow: 0 8px 20px rgba(0,0,0,0.15); }
+        .gallery-item:hover:not(.loading) .heart-btn { opacity: 1; }
         .gallery-item img { width: 100%; height: auto; display: block; transition: opacity 0.3s; }
         .gallery-item img.loading { opacity: 0.6; filter: blur(8px); }
         .gallery-item .loader {
@@ -959,7 +960,6 @@ async function generateIndexHTML() {
             transition: all 0.2s;
             z-index: 10;
         }
-        .gallery-item:hover .heart-btn { opacity: 1; }
         .heart-btn.hearted { opacity: 1; }
         .heart-btn svg { width: 18px; height: 18px; }
         .heart-btn:hover { transform: scale(1.1); background: rgba(255,255,255,1); }
